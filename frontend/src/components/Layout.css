@@ -1,0 +1,299 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  background: #f5f5f5;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.layout {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #1f2937;
+  color: #fff;
+}
+
+.branding {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.auth {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.auth-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.auth-form input,
+.auth-form select,
+.auth-form button {
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.25rem;
+  border: 1px solid #d1d5db;
+}
+
+.auth-form button {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.auth-row button {
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.25rem;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
+}
+
+.error-text {
+  color: #f97316;
+  font-size: 0.85rem;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.toolbar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.toolbar-section label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.toolbar-section select,
+.toolbar-section input,
+.toolbar-section button {
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid #d1d5db;
+  background: #fff;
+}
+
+.toolbar-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.toolbar-buttons button {
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+  cursor: pointer;
+}
+
+.panes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.pane {
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pane-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+}
+
+.pane-content {
+  padding: 0.75rem 1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.loading-state,
+.empty-state {
+  color: #6b7280;
+  font-size: 0.9rem;
+  padding: 0.75rem 0;
+}
+
+.verse-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.verse-item {
+  padding: 0.5rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.verse-item:hover {
+  background: #f9fafb;
+}
+
+.verse-item.active {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+}
+
+.verse-number {
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.backlinks {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.notes-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.notes-form input,
+.notes-form textarea,
+.notes-form select,
+.notes-form button {
+  padding: 0.5rem;
+  border-radius: 0.35rem;
+  border: 1px solid #d1d5db;
+  font: inherit;
+}
+
+.notes-form textarea {
+  min-height: 120px;
+}
+
+.notes-form button {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.note-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+}
+
+.note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+
+.note-title {
+  font-weight: 600;
+}
+
+.note-meta {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.note-body {
+  font-size: 0.9rem;
+}
+
+.commentary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.commentary-list,
+.subscription-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.commentary-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.6rem;
+  background: #f9fafb;
+}
+
+.commentary-item.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.commentary-item button {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.25rem;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.entries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.entry-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: #fff;
+}
+
+.search-input {
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.35rem;
+  border: 1px solid #d1d5db;
+  width: 100%;
+}

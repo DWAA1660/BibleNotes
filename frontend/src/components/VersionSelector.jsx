@@ -1,0 +1,81 @@
+import PropTypes from "prop-types";
+
+function VersionSelector({
+  versions,
+  selectedVersion,
+  onVersionChange,
+  books,
+  selectedBook,
+  onBookChange,
+  chapter,
+  onChapterChange,
+  loadingChapter
+}) {
+  return (
+    <div className="toolbar">
+      <div className="toolbar-section">
+        <label htmlFor="version-select">Version</label>
+        <select
+          id="version-select"
+          value={selectedVersion}
+          onChange={event => onVersionChange(event.target.value)}
+        >
+          {versions.map(version => (
+            <option key={version.code} value={version.code}>
+              {version.name} ({version.language})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="toolbar-section">
+        <label htmlFor="book-select">Book</label>
+        <select
+          id="book-select"
+          value={selectedBook}
+          onChange={event => onBookChange(event.target.value)}
+        >
+          {books.map(book => (
+            <option key={book} value={book}>
+              {book}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="toolbar-section">
+        <label htmlFor="chapter-input">Chapter</label>
+        <input
+          id="chapter-input"
+          type="number"
+          min={1}
+          value={chapter}
+          onChange={event => onChapterChange(Number(event.target.value))}
+        />
+        {loadingChapter ? <span className="loading-state">Loading...</span> : null}
+      </div>
+    </div>
+  );
+}
+
+VersionSelector.propTypes = {
+  versions: PropTypes.arrayOf(
+    PropTypes.shape({
+      code: PropTypes.string.isRequired,
+      name: PropTypes.string.isRequired,
+      language: PropTypes.string.isRequired
+    })
+  ).isRequired,
+  selectedVersion: PropTypes.string.isRequired,
+  onVersionChange: PropTypes.func.isRequired,
+  books: PropTypes.arrayOf(PropTypes.string).isRequired,
+  selectedBook: PropTypes.string.isRequired,
+  onBookChange: PropTypes.func.isRequired,
+  chapter: PropTypes.number.isRequired,
+  onChapterChange: PropTypes.func.isRequired,
+  loadingChapter: PropTypes.bool
+};
+
+VersionSelector.defaultProps = {
+  loadingChapter: false
+};
+
+export default VersionSelector;
