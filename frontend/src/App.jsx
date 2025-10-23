@@ -6,6 +6,7 @@ import BiblePane from "./components/BiblePane.jsx";
 import NotesPane from "./components/NotesPane.jsx";
 import CommentaryPane from "./components/CommentaryPane.jsx";
 import ManuscriptsPane from "./components/ManuscriptsPane.jsx";
+import AppConcordance from "./components/AppConcordance.jsx";
 import SearchPage from "./components/SearchPage.jsx";
 import UserProfilePage from "./components/UserProfilePage.jsx";
 import ProfilePage from "./components/ProfilePage.jsx";
@@ -115,6 +116,9 @@ function App() {
   const [profileError, setProfileError] = useState("");
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [rightPaneTab, setRightPaneTab] = useState(() => localStorage.getItem("rightPaneTab") || "commentaries");
+  const [selectionMode, setSelectionMode] = useState(() => localStorage.getItem("selectionMode") || "verse");
+  const [pendingGoto, setPendingGoto] = useState(null);
+  const [concordanceQuery, setConcordanceQuery] = useState("");
 
   useEffect(() => {
     setToken(authToken);
@@ -127,6 +131,14 @@ function App() {
       localStorage.removeItem("rightPaneTab");
     }
   }, [rightPaneTab]);
+
+  useEffect(() => {
+    if (selectionMode) {
+      localStorage.setItem("selectionMode", selectionMode);
+    } else {
+      localStorage.removeItem("selectionMode");
+    }
+  }, [selectionMode]);
 
   useEffect(() => {
     async function loadVersions() {
@@ -179,6 +191,32 @@ function App() {
       localStorage.removeItem("selectedVerseId");
     }
   }, [selectedVerseId]);
+
+  // When a word is clicked in the Bible pane, switch to Concordance and seed query
+  useEffect(() => {
+    const handler = e => {
+      const d = e.detail || {};
+      if (d && d.token) {
+        try { localStorage.setItem("lastWordSelectToken", d.token); } catch {}
+        setConcordanceQuery(d.token);
+        setRightPaneTab("concordance");
+      }
+    };
+    window.addEventListener("word-select", handler);
+    return () => window.removeEventListener("word-select", handler);
+  }, []);
+
+  // After chapter loads, if we have a pending go-to-verse, select and scroll to it
+  useEffect(() => {
+    if (!pendingGoto || !chapterData) return;
+    if (chapterData.book !== pendingGoto.book || chapterData.chapter !== pendingGoto.chapter) return;
+    const verseObj = chapterData.verses.find(v => v.verse === pendingGoto.verse);
+    if (verseObj) {
+      setSelectedVerseId(verseObj.id);
+      window.dispatchEvent(new CustomEvent("goto-verse", { detail: { book: pendingGoto.book, chapter: pendingGoto.chapter, verse: pendingGoto.verse } }));
+    }
+    setPendingGoto(null);
+  }, [pendingGoto, chapterData]);
 
   useEffect(() => {
     if (!selectedVersion || !selectedBook || !selectedChapter) {
@@ -537,6 +575,9 @@ function App() {
                   selectedVerseId={selectedVerseId}
                   onSelectVerse={setSelectedVerseId}
                   isLoading={isLoadingChapter}
+                  selectionMode={selectionMode}
+                  onSelectionModeChange={setSelectionMode}
+                  activeTab={rightPaneTab}
                 />
                 {rightPaneTab === "commentaries" ? (
                   <CommentaryPane
@@ -549,12 +590,24 @@ function App() {
                     authorNotes={authorNotes}
                     isLoading={isLoadingCommentaries}
                   />
-                ) : (
+                ) : rightPaneTab === "manuscripts" ? (
                   <ManuscriptsPane
                     book={selectedBook}
                     chapter={selectedChapter}
                     activeTab={rightPaneTab}
                     onChangeTab={setRightPaneTab}
+                  />
+                ) : (
+                  <AppConcordance
+                    version={selectedVersion}
+                    initialQuery={concordanceQuery || localStorage.getItem("lastWordSelectToken") || ""}
+                    activeTab={rightPaneTab}
+                    onChangeTab={setRightPaneTab}
+                    onRefClick={(b, c, v) => {
+                      setSelectedBook(b);
+                      setSelectedChapter(c);
+                      setPendingGoto({ book: b, chapter: c, verse: v });
+                    }}
                   />
                 )}
               </div>

@@ -286,3 +286,19 @@ class ManuscriptChapterResponse(BaseModel):
 
 class ManuscriptEditionListResponse(BaseModel):
     editions: List[ManuscriptEditionRead]
+
+
+class ConcordanceHit(BaseModel):
+    book: str
+    chapter: int
+    verse: int
+    text: str
+    occurrences: int
+
+
+class ConcordanceResponse(BaseModel):
+    query: str
+    version_code: str
+    total: int
+    total_occurrences: int
+    hits: List[ConcordanceHit]

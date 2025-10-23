@@ -1,4 +1,6 @@
 from typing import List, Optional
+import re
+import html
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import aliased
@@ -6,7 +8,15 @@ from sqlmodel import Session, select
 
 from ..dependencies import get_db, get_optional_user
 from ..models import BibleVersion, Note, NoteCrossReference, User, Verse
-from ..schemas import BacklinkRead, BibleChapterResponse, BibleVersionRead, VerseRead, VerseWithBacklinks
+from ..schemas import (
+    BacklinkRead,
+    BibleChapterResponse,
+    BibleVersionRead,
+    VerseRead,
+    VerseWithBacklinks,
+    ConcordanceResponse,
+    ConcordanceHit,
+)
 
 router = APIRouter(prefix="/bible", tags=["bible"])
 
@@ -80,4 +90,85 @@ def read_chapter(
         book=book,
         chapter=chapter,
         verses=verse_payloads,
+    )
+
+
+@router.get("/{version_code}/concordance", response_model=ConcordanceResponse)
+def concordance(
+    version_code: str,
+    q: str,
+    limit: int = 200,
+    offset: int = 0,
+    session: Session = Depends(get_db),
+) -> ConcordanceResponse:
+    version = session.get(BibleVersion, version_code)
+    if not version:
+        raise HTTPException(status_code=404, detail="Bible version not found")
+
+    term = (q or "").strip()
+    if not term:
+        return ConcordanceResponse(query=q, version_code=version_code, total=0, total_occurrences=0, hits=[])
+
+    # Pre-filter with LIKE for performance
+    verses = session.exec(
+        select(Verse)
+        .where(
+            Verse.version_code == version_code,
+            Verse.text.ilike(f"%{term}%"),
+        )
+        .order_by(Verse.book, Verse.chapter, Verse.verse)
+    ).all()
+
+    # Prepare regexes
+    try:
+        pattern_word = re.compile(rf"\\b{re.escape(term)}\\b", flags=re.IGNORECASE)
+    except re.error:
+        pattern_word = None
+    pattern_any = re.compile(re.escape(term), flags=re.IGNORECASE)
+
+    hits_all: List[ConcordanceHit] = []
+    total_occ = 0
+    tag_re = re.compile(r"<[^>]+>")
+    for v in verses:
+        raw = v.text or ""
+        # strip tags and unescape entities for more reliable matching
+        cleaned = html.unescape(tag_re.sub(" ", raw))
+        occ = 0
+        if pattern_word is not None:
+            occ = len(pattern_word.findall(cleaned))
+        if occ <= 0:
+            occ = len(pattern_any.findall(cleaned))
+        if occ <= 0:
+            continue
+        total_occ += occ
+        hits_all.append(ConcordanceHit(book=v.book, chapter=v.chapter, verse=v.verse, text=raw, occurrences=occ))
+
+    # If LIKE-based prefilter missed due to markup/collation, fall back to scanning all verses
+    if not hits_all:
+        verses = session.exec(
+            select(Verse)
+            .where(Verse.version_code == version_code)
+            .order_by(Verse.book, Verse.chapter, Verse.verse)
+        ).all()
+        for v in verses:
+            raw = v.text or ""
+            cleaned = html.unescape(tag_re.sub(" ", raw))
+            occ = 0
+            if pattern_word is not None:
+                occ = len(pattern_word.findall(cleaned))
+            if occ <= 0:
+                occ = len(pattern_any.findall(cleaned))
+            if occ <= 0:
+                continue
+            total_occ += occ
+            hits_all.append(ConcordanceHit(book=v.book, chapter=v.chapter, verse=v.verse, text=raw, occurrences=occ))
+
+    total = len(hits_all)
+    paged = hits_all[offset : offset + limit]
+    return ConcordanceResponse(
+        query=term,
+        version_code=version_code,
+        total=total,
+        total_occurrences=total_occ,
+        hits=paged,
     )

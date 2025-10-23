@@ -181,5 +181,13 @@ export const api = {
   },
   fetchManuscriptChapter(edition, book, chapter) {
     return request(`/manuscripts/${encodeURIComponent(edition)}/${encodeURIComponent(book)}/${chapter}`);
+  },
+  fetchConcordance(version, query, opts = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (opts.limit != null) params.set("limit", String(opts.limit));
+    if (opts.offset != null) params.set("offset", String(opts.offset));
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return request(`/bible/${encodeURIComponent(version)}/concordance${suffix}`);
   }
 };

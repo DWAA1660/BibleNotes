@@ -9,6 +9,87 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
   const [error, setError] = useState("");
   const [verses, setVerses] = useState([]);
   const [editionMeta, setEditionMeta] = useState(null);
+  const [selectedWord, setSelectedWord] = useState(null);
+  const [overrides, setOverrides] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("alignmentOverrides") || "{}") || {};
+    } catch {
+      return {};
+    }
+  });
+
+  const tokenize = text => (text || "").trim().split(/\s+/).filter(Boolean);
+  const GREEK_STOP = new Set([
+    "και","δε","γαρ","ο","η","το","οι","αι","τα","του","της","των","τω","τη","τοις","ταις","τον","την","τους","τας",
+    "εν","εις","εκ","εξ","προς","κατα","δια","περι","υπο","υπερ","αντι","απο","μετα","παρα","επι","ως","ουν","τε","μη","ου",
+    "τις","τι","ἄν","αν"
+  ]);
+  const greekContentIndices = tokens => {
+    const idx = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i].toLowerCase();
+      if (!GREEK_STOP.has(t) && t.replace(/[^\p{L}]+/gu, "").length > 1) idx.push(i);
+    }
+    return idx;
+  };
+
+  // Monotonic sequence alignment (global) over lengths only.
+  // Align English content positions [0..E-1] to Greek content positions [0..G-1]
+  // using steps (i+1,j), (i,j+1), (i+1,j+1). Cost favors staying near the diagonal.
+  function alignMonotonicByCounts(E, G) {
+    if (E <= 0 || G <= 0) return [];
+    const dp = Array.from({ length: E + 1 }, () => new Array(G + 1).fill(0));
+    const prev = Array.from({ length: E + 1 }, () => new Array(G + 1).fill(0)); // 1=diag,2=up(i-1),3=left(j-1)
+    const cost = (i, j) => {
+      // normalized positions in [0,1]
+      const ei = E === 1 ? 0 : i / (E - 1);
+      const gj = G === 1 ? 0 : j / (G - 1);
+      // smaller cost near diagonal; add small penalty for gaps implicitly via path length
+      return Math.abs(ei - gj);
+    };
+    // init
+    dp[0][0] = 0;
+    for (let i = 1; i <= E; i++) {
+      dp[i][0] = dp[i - 1][0] + cost(i - 1, 0);
+      prev[i][0] = 2; // up
+    }
+    for (let j = 1; j <= G; j++) {
+      dp[0][j] = dp[0][j - 1] + cost(0, j - 1);
+      prev[0][j] = 3; // left
+    }
+    // fill
+    for (let i = 1; i <= E; i++) {
+      for (let j = 1; j <= G; j++) {
+        const cDiag = dp[i - 1][j - 1] + cost(i - 1, j - 1);
+        const cUp = dp[i - 1][j] + cost(i - 1, j);
+        const cLeft = dp[i][j - 1] + cost(i, j - 1);
+        let best = cDiag; let from = 1;
+        if (cUp < best) { best = cUp; from = 2; }
+        if (cLeft < best) { best = cLeft; from = 3; }
+        dp[i][j] = best; prev[i][j] = from;
+      }
+    }
+    // backtrack to get mapping for each English index (content): mapE[i] to some j
+    const mapE = new Array(E).fill(0);
+    let i = E, j = G;
+    while (i > 0 || j > 0) {
+      const p = prev[i][j];
+      if (p === 1) {
+        // diagonal: i-1 aligned to j-1
+        mapE[i - 1] = j - 1; i -= 1; j -= 1;
+      } else if (p === 2) {
+        // up: i-1 aligned to current j (gap in Greek)
+        mapE[i - 1] = Math.max(0, Math.min(G - 1, j)); i -= 1;
+      } else {
+        // left: gap in English, move Greek
+        j -= 1;
+      }
+    }
+    // enforce monotonic bounds
+    for (let k = 1; k < E; k++) mapE[k] = Math.max(mapE[k], mapE[k - 1]);
+    for (let k = E - 2; k >= 0; k--) mapE[k] = Math.min(mapE[k], mapE[k + 1]);
+    return mapE;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +152,40 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
     return () => { cancelled = true; };
   }, [selectedEdition, book, chapter]);
 
+  useEffect(() => {
+    const last = window.localStorage.getItem("wordSelect");
+    if (last) {
+      try {
+        const obj = JSON.parse(last);
+        if (obj && obj.book === book && obj.chapter === chapter) {
+          setSelectedWord(obj);
+        }
+      } catch {}
+    }
+    const handler = e => {
+      const d = e.detail || {};
+      if (d.book === book && d.chapter === chapter) {
+        setSelectedWord(d);
+      }
+    };
+    window.addEventListener("word-select", handler);
+    return () => window.removeEventListener("word-select", handler);
+  }, [book, chapter]);
+
+  const overrideKey = selectedWord ? `${book}|${chapter}|${selectedWord.verse}|${selectedWord.englishNonStopIndex ?? selectedWord.index}` : null;
+
+  const saveOverrides = next => {
+    setOverrides(next);
+    try { localStorage.setItem("alignmentOverrides", JSON.stringify(next)); } catch {}
+  };
+
+  const nudgeHighlight = delta => {
+    if (!overrideKey) return;
+    const current = overrides[overrideKey] || 0;
+    const next = { ...overrides, [overrideKey]: current + delta };
+    saveOverrides(next);
+  };
+
   return (
     <div className="pane">
       <div className="pane-header tabs-header">
@@ -89,6 +204,15 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
           >
             Manuscripts
           </button>
+          <button
+            type="button"
+            className={`tab ${activeTab === "concordance" ? "active" : ""}`}
+            onClick={() => onChangeTab("concordance")}
+          >
+            Concordance
+          </button>
+        </div>
+        <div style={{ marginLeft: "auto" }}>
         </div>
       </div>
       <div className="pane-content">
@@ -139,7 +263,9 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
               {verses.map(v => (
                 <div key={v.id} className="entry-card">
                   <div className="note-meta">{v.chapter}:{v.verse}</div>
-                  <div>{v.text}</div>
+                  <div>
+                    <span>{v.text}</span>
+                  </div>
                 </div>
               ))}
             </div>

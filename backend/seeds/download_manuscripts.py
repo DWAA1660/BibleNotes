@@ -40,6 +40,29 @@ def fetch_bytes(url: str) -> bytes:
         r.raise_for_status()
         return r.content
 
+# --- ASCII Greek (byztxt) -> Unicode Greek ---
+ASCII_TO_GREEK = {
+    "a": "α", "b": "β", "g": "γ", "d": "δ", "e": "ε", "z": "ζ",
+    "h": "η", "q": "θ", "i": "ι", "k": "κ", "l": "λ", "m": "μ",
+    "n": "ν", "c": "χ", "x": "ξ", "o": "ο", "p": "π", "r": "ρ",
+    "s": "σ", "t": "τ", "u": "υ", "f": "φ", "y": "ψ", "w": "ω",
+    "v": "ς"  # final sigma marker used in byztxt
+}
+
+def ascii_greek_to_unicode(text: str) -> str:
+    out: list[str] = []
+    for ch in text:
+        lower = ch.lower()
+        if lower in ASCII_TO_GREEK:
+            uni = ASCII_TO_GREEK[lower]
+            # preserve case if needed (rare in byztxt textonly)
+            if ch.isupper():
+                uni = uni.upper()
+            out.append(uni)
+        else:
+            out.append(ch)
+    return "".join(out)
+
 
 def parse_titles_wh(text: str) -> Dict[str, str]:
     mapping: Dict[str, str] = {}
@@ -235,6 +258,10 @@ def download_wh(out_root: Path) -> Tuple[str, Path]:
         book_name = titles.get(book_code, book_code)
         txt = fetch_text(BYZTXT_RAW.format(repo=repo, path=name))
         chapters = parse_textonly_book(txt)
+        # transliterate ASCII Greek to Unicode Greek
+        for ch, verses in chapters.items():
+            for vs, t in list(verses.items()):
+                verses[vs] = ascii_greek_to_unicode(t)
         data[book_name] = chapters
 
     write_json(out_dir / f"{code}.json", data)
@@ -270,6 +297,9 @@ def download_scv(out_root: Path) -> Tuple[str, Path]:
         book_name = titles.get(book_code, book_code)
         txt = fetch_text(BYZTXT_RAW.format(repo=repo, path=name))
         chapters = parse_textonly_book(txt)
+        for ch, verses in chapters.items():
+            for vs, t in list(verses.items()):
+                verses[vs] = ascii_greek_to_unicode(t)
         data[book_name] = chapters
 
     write_json(out_dir / f"{code}.json", data)

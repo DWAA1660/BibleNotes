@@ -36,6 +36,13 @@ function CommentaryPane({
           >
             Manuscripts
           </button>
+          <button
+            type="button"
+            className={`tab ${activeTab === "concordance" ? "active" : ""}`}
+            onClick={() => onChangeTab("concordance")}
+          >
+            Concordance
+          </button>
         </div>
       </div>
       <div className="pane-content">
