@@ -184,7 +184,8 @@ function App() {
 
   const handleAuthSubmit = async event => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
     const email = form.get("email");
     const password = form.get("password");
     const displayName = form.get("displayName") || undefined;
@@ -199,7 +200,7 @@ function App() {
         setAuthToken(token.access_token);
         localStorage.setItem("authToken", token.access_token);
       }
-      event.currentTarget.reset();
+      formEl.reset();
     } catch (error) {
       setAuthError(error.message || "Authentication failed");
     }

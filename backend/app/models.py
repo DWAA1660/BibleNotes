@@ -8,12 +8,10 @@ from sqlmodel import Field, Relationship, SQLModel
 class TimestampMixin(SQLModel):
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        nullable=False,
         sa_column=Column(DateTime(timezone=False), default=datetime.utcnow),
     )
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
-        nullable=False,
         sa_column=Column(DateTime(timezone=False), default=datetime.utcnow, onupdate=datetime.utcnow),
     )
 
@@ -25,8 +23,20 @@ class User(SQLModel, table=True):
     display_name: Optional[str] = None
 
     notes: list["Note"] = Relationship(back_populates="owner", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    commentaries: list["Commentary"] = Relationship(back_populates="owner", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    subscriptions: list["UserCommentarySubscription"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    subscriptions: list["UserNoteSubscription"] = Relationship(
+        back_populates="subscriber",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "foreign_keys": "[UserNoteSubscription.subscriber_id]",
+        },
+    )
+    followers: list["UserNoteSubscription"] = Relationship(
+        back_populates="author",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "foreign_keys": "[UserNoteSubscription.author_id]",
+        },
+    )
 
 
 class BibleVersion(SQLModel, table=True):
@@ -50,10 +60,21 @@ class Verse(SQLModel, table=True):
     text: str
 
     version: BibleVersion = Relationship(back_populates="verses")
-    notes_start: list["Note"] = Relationship(back_populates="anchor_start")
-    notes_end: list["Note"] = Relationship(back_populates="anchor_end")
+    notes_start: list["Note"] = Relationship(
+        back_populates="anchor_start",
+        sa_relationship_kwargs={
+            "primaryjoin": "Note.start_verse_id == Verse.id",
+            "foreign_keys": "Note.start_verse_id",
+        },
+    )
+    notes_end: list["Note"] = Relationship(
+        back_populates="anchor_end",
+        sa_relationship_kwargs={
+            "primaryjoin": "Note.end_verse_id == Verse.id",
+            "foreign_keys": "Note.end_verse_id",
+        },
+    )
     backlink_refs: list["NoteCrossReference"] = Relationship(back_populates="target_verse")
-    commentary_entries: list["CommentaryEntry"] = Relationship(back_populates="verse")
 
 
 class Note(TimestampMixin, SQLModel, table=True):
@@ -89,35 +110,16 @@ class NoteCrossReference(SQLModel, table=True):
     target_verse: Verse = Relationship(back_populates="backlink_refs")
 
 
-class Commentary(TimestampMixin, SQLModel, table=True):
+class UserNoteSubscription(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    owner_id: int = Field(foreign_key="user.id")
-    title: str
-    description: Optional[str] = None
-    is_public: bool = Field(default=False)
+    subscriber_id: int = Field(foreign_key="user.id")
+    author_id: int = Field(foreign_key="user.id")
 
-    owner: User = Relationship(back_populates="commentaries")
-    entries: list["CommentaryEntry"] = Relationship(
-        back_populates="commentary", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    subscriber: User = Relationship(
+        back_populates="subscriptions",
+        sa_relationship_kwargs={"foreign_keys": "[UserNoteSubscription.subscriber_id]"},
     )
-    subscribers: list["UserCommentarySubscription"] = Relationship(back_populates="commentary")
-
-
-class CommentaryEntry(TimestampMixin, SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    commentary_id: int = Field(foreign_key="commentary.id")
-    verse_id: int = Field(foreign_key="verse.id")
-    content_markdown: str
-    content_html: str
-
-    commentary: Commentary = Relationship(back_populates="entries")
-    verse: Verse = Relationship(back_populates="commentary_entries")
-
-
-class UserCommentarySubscription(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user.id")
-    commentary_id: int = Field(foreign_key="commentary.id")
-
-    user: User = Relationship(back_populates="subscriptions")
-    commentary: Commentary = Relationship(back_populates="subscribers")
+    author: User = Relationship(
+        back_populates="followers",
+        sa_relationship_kwargs={"foreign_keys": "[UserNoteSubscription.author_id]"},
+    )

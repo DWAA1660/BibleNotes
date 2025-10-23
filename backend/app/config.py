@@ -7,7 +7,7 @@ from pydantic import BaseSettings, Field
 
 class Settings(BaseSettings):
     database_url: str = Field("sqlite:///backend/bible_notes.db", env="DATABASE_URL")
-    jwt_secret: str = Field(..., env="JWT_SECRET")
+    jwt_secret: str = Field("change_me", env="JWT_SECRET")
     jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(120, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     bible_assets_path: Path = Field(Path("bibles"), env="BIBLE_ASSETS_PATH")

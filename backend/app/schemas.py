@@ -94,6 +94,12 @@ class NoteRead(NoteBase):
     content_html: str
     owner_id: int
     owner_display_name: Optional[str] = None
+    start_book: str
+    start_chapter: int
+    start_verse: int
+    end_book: str
+    end_chapter: int
+    end_verse: int
     created_at: datetime
     updated_at: datetime
     cross_references: List[str] = Field(default_factory=list)
@@ -102,67 +108,31 @@ class NoteRead(NoteBase):
         orm_mode = True
 
 
-class CommentaryBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    is_public: bool = False
+class AuthorSummary(BaseModel):
+    author_id: int
+    author_display_name: Optional[str] = None
+    public_note_count: int
 
 
-class CommentaryCreate(CommentaryBase):
-    pass
+class AuthorSubscriptionRead(BaseModel):
+    author_id: int
+    author_display_name: Optional[str] = None
 
 
-class CommentaryUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    is_public: Optional[bool] = None
+class AuthorNotesRead(BaseModel):
+    author_id: int
+    author_display_name: Optional[str] = None
+    notes: List["NoteRead"]
 
 
-class CommentaryRead(CommentaryBase):
-    id: int
-    owner_id: int
-    owner_display_name: Optional[str] = None
-
-    class Config:
-        orm_mode = True
+class AuthorNotesSummary(BaseModel):
+    author_id: int
+    author_display_name: Optional[str] = None
+    note_count: int
 
 
-class CommentaryEntryBase(BaseModel):
-    verse_id: int
-    content_markdown: str
-
-
-class CommentaryEntryCreate(CommentaryEntryBase):
-    pass
-
-
-class CommentaryEntryUpdate(BaseModel):
-    content_markdown: Optional[str] = None
-
-
-class CommentaryEntryRead(CommentaryEntryBase):
-    id: int
-    commentary_id: int
-    content_html: str
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        orm_mode = True
-
-
-class CommentarySubscriptionRead(BaseModel):
-    commentary_id: int
-    commentary_title: str
-    owner_id: int
-    owner_display_name: Optional[str] = None
-
-
-class CommentarySearchResult(BaseModel):
-    id: int
-    title: str
-    description: Optional[str] = None
-    owner_display_name: Optional[str] = None
+class AuthorNotesResponse(BaseModel):
+    authors: List[AuthorNotesRead]
 
 
 class BibleChapterResponse(BaseModel):
@@ -180,9 +150,9 @@ class BacklinksResponse(BaseModel):
     backlinks: List[BacklinkRead]
 
 
-class CommentaryListResponse(BaseModel):
-    commentaries: List[CommentaryRead]
+class AuthorListResponse(BaseModel):
+    authors: List[AuthorSummary]
 
 
-class CommentaryEntryResponse(BaseModel):
-    entries: List[CommentaryEntryRead]
+class AuthorSubscriptionListResponse(BaseModel):
+    subscriptions: List[AuthorSubscriptionRead]

@@ -48,6 +48,47 @@ export const api = {
   fetchNotes(version, book, chapter) {
     return request(`/notes/${encodeURIComponent(version)}/${encodeURIComponent(book)}/${chapter}`);
   },
+  fetchPublicAuthors(params = {}) {
+    const query = new URLSearchParams();
+    if (params.version) {
+      query.set("version_code", params.version);
+    }
+    if (params.book) {
+      query.set("book", params.book);
+    }
+    if (params.chapter) {
+      query.set("chapter", params.chapter);
+    }
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request(`/notes/authors/public${suffix}`);
+  },
+  fetchSubscriptions() {
+    return request("/notes/subscriptions");
+  },
+  subscribeAuthor(authorId) {
+    return request(`/notes/subscriptions/${authorId}`, {
+      method: "POST"
+    });
+  },
+  unsubscribeAuthor(authorId) {
+    return request(`/notes/subscriptions/${authorId}`, {
+      method: "DELETE"
+    });
+  },
+  fetchSubscribedNotes(params = {}) {
+    const query = new URLSearchParams();
+    if (params.version) {
+      query.set("version_code", params.version);
+    }
+    if (params.book) {
+      query.set("book", params.book);
+    }
+    if (params.chapter) {
+      query.set("chapter", params.chapter);
+    }
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request(`/notes/subscriptions/notes${suffix}`);
+  },
   signup(payload) {
     return request("/auth/signup", {
       method: "POST",
@@ -83,5 +124,22 @@ export const api = {
       ? `/commentaries/${commentaryId}/entries?verse_id=${verseId}`
       : `/commentaries/${commentaryId}/entries`;
     return request(url);
+  },
+  fetchMe() {
+    return request("/auth/me");
+  },
+  updateNote(noteId, payload) {
+    return request(`/notes/${noteId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    });
+  },
+  fetchMyNotes() {
+    return request("/notes/me");
+  },
+  deleteNote(noteId) {
+    return request(`/notes/${noteId}`, {
+      method: "DELETE"
+    });
   }
 };

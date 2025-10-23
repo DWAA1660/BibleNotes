@@ -97,15 +97,15 @@ Usage:
 
 ```bash
 # 1. Create virtual environment and install deps
-python -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r backend/requirements.txt
 
 # 2. Initialize the database
-python -m backend.app.database --init
+python3 -m backend.app.database --init
 
 # 3. Seed at least one version (example: ESV)
-python backend/seeds/seed_bible.py --db backend/bible_notes.db --version ESV
+python3 backend/seeds/seed_bible.py --db backend/bible_notes.db --version ESV
 ```
 
 ## Frontend Overview
@@ -130,6 +130,16 @@ cd frontend
 npm install
 npm run dev
 ```
+
+By default the Vite dev server binds to `localhost:5173`. If you are working from a different machine or need to access the app over your LAN, run:
+
+```bash
+cd frontend
+npm install
+npm run dev -- --host
+```
+
+Then open `http://localhost:5173/` (or the network URL Vite prints) in your browser while the backend API is running on port `8000`.
 
 ### Environment Variables
 

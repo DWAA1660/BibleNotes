@@ -1,14 +1,21 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from ..dependencies import get_current_user, get_db, get_optional_user
-from ..models import Note, NoteCrossReference, User, Verse
+from ..models import Note, NoteCrossReference, User, UserNoteSubscription, Verse
 from ..schemas import (
-    BacklinksResponse,
+    AuthorListResponse,
+    AuthorNotesRead,
+    AuthorNotesResponse,
+    AuthorSubscriptionListResponse,
+    AuthorSubscriptionRead,
+    AuthorSummary,
     BacklinkRead,
+    BacklinksResponse,
     NoteCreate,
     NoteRead,
     NoteUpdate,
@@ -18,6 +25,10 @@ from ..utils.markdown import render_markdown
 from ..utils.reference_parser import extract_canonical_ids
 
 router = APIRouter(prefix="/notes", tags=["notes"])
+
+
+def get_author_label(user: User) -> str:
+    return user.display_name or user.email
 
 
 def serialize_note(note: Note) -> NoteRead:
@@ -60,6 +71,62 @@ def apply_cross_references(session: Session, note: Note, version_code: str) -> N
         )
 
 
+def fetch_author_notes(
+    session: Session,
+    author_id: int,
+    include_private: bool,
+    version_code: Optional[str] = None,
+    book: Optional[str] = None,
+    chapter: Optional[int] = None,
+) -> List[Note]:
+    stmt = (
+        select(Note)
+        .options(
+            selectinload(Note.owner),
+            selectinload(Note.cross_references),
+            selectinload(Note.anchor_start),
+            selectinload(Note.anchor_end),
+        )
+        .where(Note.owner_id == author_id)
+        .order_by(Note.created_at.desc())
+    )
+
+    if not include_private:
+        stmt = stmt.where(Note.is_public.is_(True))
+
+    if version_code:
+        stmt = stmt.where(Note.version_code == version_code)
+
+    if book or chapter:
+        stmt = stmt.join(Verse, Note.start_verse_id == Verse.id)
+        if book:
+            stmt = stmt.where(Verse.book == book)
+        if chapter:
+            stmt = stmt.where(Verse.chapter == chapter)
+
+    return session.exec(stmt).all()
+
+
+@router.get("/me", response_model=NotesResponse)
+def list_my_notes(
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> NotesResponse:
+    notes = session.exec(
+        select(Note)
+        .options(
+            selectinload(Note.owner),
+            selectinload(Note.cross_references),
+            selectinload(Note.anchor_start),
+            selectinload(Note.anchor_end),
+        )
+        .where(Note.owner_id == current_user.id)
+        .order_by(Note.updated_at.desc())
+    ).all()
+
+    return NotesResponse(notes=[serialize_note(note) for note in notes])
+
+
 @router.get("/{version_code}/{book}/{chapter}", response_model=NotesResponse)
 def list_notes(
     version_code: str,
@@ -95,6 +162,164 @@ def list_notes(
             visible_notes.append(note)
 
     return NotesResponse(notes=[serialize_note(note) for note in visible_notes])
+
+
+@router.get("/authors/public", response_model=AuthorListResponse)
+def list_public_authors(
+    version_code: Optional[str] = None,
+    book: Optional[str] = None,
+    chapter: Optional[int] = None,
+    session: Session = Depends(get_db),
+) -> AuthorListResponse:
+    stmt = (
+        select(User.id, User.display_name, User.email, func.count(Note.id))
+        .join(Note, Note.owner_id == User.id)
+        .where(Note.is_public.is_(True))
+    )
+
+    if version_code:
+        stmt = stmt.where(Note.version_code == version_code)
+
+    if book or chapter:
+        stmt = stmt.join(Verse, Note.start_verse_id == Verse.id)
+        if book:
+            stmt = stmt.where(Verse.book == book)
+        if chapter:
+            stmt = stmt.where(Verse.chapter == chapter)
+
+    stmt = stmt.group_by(User.id, User.display_name, User.email).order_by(
+        func.lower(func.coalesce(User.display_name, User.email))
+    )
+
+    results = session.exec(stmt).all()
+
+    authors: List[AuthorSummary] = []
+    for author_id, display_name, email, count in results:
+        label = display_name or email
+        authors.append(AuthorSummary(author_id=author_id, author_display_name=label, public_note_count=count))
+
+    return AuthorListResponse(authors=authors)
+
+
+@router.get("/subscriptions", response_model=AuthorSubscriptionListResponse)
+def list_subscriptions(
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AuthorSubscriptionListResponse:
+    subs = session.exec(
+        select(UserNoteSubscription)
+        .where(UserNoteSubscription.subscriber_id == current_user.id)
+        .options(selectinload(UserNoteSubscription.author))
+    ).all()
+
+    subscriptions: List[AuthorSubscriptionRead] = []
+    for sub in subs:
+        if not sub.author:
+            continue
+        subscriptions.append(
+            AuthorSubscriptionRead(
+                author_id=sub.author_id,
+                author_display_name=get_author_label(sub.author),
+            )
+        )
+
+    return AuthorSubscriptionListResponse(subscriptions=subscriptions)
+
+
+@router.post("/subscriptions/{author_id}", response_model=AuthorSubscriptionRead, status_code=status.HTTP_201_CREATED)
+def subscribe_author(
+    author_id: int,
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AuthorSubscriptionRead:
+    if author_id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot subscribe to yourself")
+
+    author = session.get(User, author_id)
+    if not author:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Author not found")
+
+    existing = session.exec(
+        select(UserNoteSubscription)
+        .where(
+            UserNoteSubscription.subscriber_id == current_user.id,
+            UserNoteSubscription.author_id == author_id,
+        )
+    ).first()
+
+    if existing:
+        return AuthorSubscriptionRead(author_id=author_id, author_display_name=get_author_label(author))
+
+    subscription = UserNoteSubscription(subscriber_id=current_user.id, author_id=author_id)
+    session.add(subscription)
+    session.commit()
+    return AuthorSubscriptionRead(author_id=author_id, author_display_name=get_author_label(author))
+
+
+@router.delete("/subscriptions/{author_id}", status_code=status.HTTP_204_NO_CONTENT)
+def unsubscribe_author(
+    author_id: int,
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    subscription = session.exec(
+        select(UserNoteSubscription)
+        .where(
+            UserNoteSubscription.subscriber_id == current_user.id,
+            UserNoteSubscription.author_id == author_id,
+        )
+    ).first()
+
+    if not subscription:
+        return
+
+    session.delete(subscription)
+    session.commit()
+
+
+@router.get("/subscriptions/notes", response_model=AuthorNotesResponse)
+def list_subscribed_notes(
+    version_code: Optional[str] = None,
+    book: Optional[str] = None,
+    chapter: Optional[int] = None,
+    session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AuthorNotesResponse:
+    subs = session.exec(
+        select(UserNoteSubscription)
+        .where(UserNoteSubscription.subscriber_id == current_user.id)
+        .options(selectinload(UserNoteSubscription.author))
+    ).all()
+
+    authors_payload: List[AuthorNotesRead] = []
+
+    for sub in subs:
+        author = sub.author
+        if not author:
+            continue
+
+        include_private = author.id == current_user.id
+        author_notes = fetch_author_notes(
+            session,
+            author_id=author.id,
+            include_private=include_private,
+            version_code=version_code,
+            book=book,
+            chapter=chapter,
+        )
+
+        if not author_notes:
+            continue
+
+        authors_payload.append(
+            AuthorNotesRead(
+                author_id=author.id,
+                author_display_name=get_author_label(author),
+                notes=[serialize_note(note) for note in author_notes],
+            )
+        )
+
+    return AuthorNotesResponse(authors=authors_payload)
 
 
 @router.post("", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
