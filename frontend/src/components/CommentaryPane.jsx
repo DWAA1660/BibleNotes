@@ -1,6 +1,4 @@
 import PropTypes from "prop-types";
-import { useEffect, useState } from "react";
-
 function CommentaryPane({
   publicCommentaries,
   subscriptions,
@@ -8,36 +6,13 @@ function CommentaryPane({
   onSelectCommentary,
   onSubscribe,
   commentaryEntries,
-  onSearch,
-  searchTerm,
   isAuthenticated,
   isLoading
 }) {
-  const [localSearch, setLocalSearch] = useState(searchTerm);
-
-  useEffect(() => {
-    setLocalSearch(searchTerm);
-  }, [searchTerm]);
-
-  const handleSearchSubmit = event => {
-    event.preventDefault();
-    onSearch(localSearch);
-  };
-
   return (
     <div className="pane">
       <div className="pane-header">Commentaries</div>
       <div className="pane-content">
-        <form onSubmit={handleSearchSubmit} className="commentary-section">
-          <input
-            type="search"
-            className="search-input"
-            placeholder="Search public commentaries"
-            value={localSearch}
-            onChange={event => setLocalSearch(event.target.value)}
-          />
-        </form>
-
         <div className="commentary-section">
           <div className="section-title">My Subscriptions</div>
           {subscriptions.length ? (
@@ -116,8 +91,6 @@ CommentaryPane.propTypes = {
   onSelectCommentary: PropTypes.func.isRequired,
   onSubscribe: PropTypes.func.isRequired,
   commentaryEntries: PropTypes.array.isRequired,
-  onSearch: PropTypes.func.isRequired,
-  searchTerm: PropTypes.string.isRequired,
   isAuthenticated: PropTypes.bool,
   isLoading: PropTypes.bool
 };

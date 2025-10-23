@@ -37,6 +37,17 @@ class User(SQLModel, table=True):
             "foreign_keys": "[UserNoteSubscription.author_id]",
         },
     )
+    commentaries: list["Commentary"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    commentary_subscriptions: list["UserCommentarySubscription"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "foreign_keys": "[UserCommentarySubscription.user_id]",
+        },
+    )
 
 
 class BibleVersion(SQLModel, table=True):
@@ -123,3 +134,44 @@ class UserNoteSubscription(SQLModel, table=True):
         back_populates="followers",
         sa_relationship_kwargs={"foreign_keys": "[UserNoteSubscription.author_id]"},
     )
+
+
+class Commentary(TimestampMixin, SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    owner_id: int = Field(foreign_key="user.id")
+    title: str
+    description: Optional[str] = None
+    is_public: bool = Field(default=False)
+
+    owner: User = Relationship(back_populates="commentaries")
+    entries: list["CommentaryEntry"] = Relationship(
+        back_populates="commentary",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    subscriptions: list["UserCommentarySubscription"] = Relationship(
+        back_populates="commentary",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class CommentaryEntry(TimestampMixin, SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    commentary_id: int = Field(foreign_key="commentary.id")
+    verse_id: int = Field(foreign_key="verse.id")
+    content_markdown: str
+    content_html: str
+
+    commentary: Commentary = Relationship(back_populates="entries")
+    verse: Verse = Relationship()
+
+
+class UserCommentarySubscription(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    commentary_id: int = Field(foreign_key="commentary.id")
+
+    user: User = Relationship(
+        back_populates="commentary_subscriptions",
+        sa_relationship_kwargs={"foreign_keys": "[UserCommentarySubscription.user_id]"},
+    )
+    commentary: Commentary = Relationship(back_populates="subscriptions")

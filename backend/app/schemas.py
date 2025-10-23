@@ -146,6 +146,86 @@ class NotesResponse(BaseModel):
     notes: List[NoteRead]
 
 
+class CommentaryBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    is_public: bool = False
+
+
+class CommentaryCreate(CommentaryBase):
+    pass
+
+
+class CommentaryUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    is_public: Optional[bool] = None
+
+
+class CommentaryRead(CommentaryBase):
+    id: int
+    owner_id: int
+    owner_display_name: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class CommentaryListResponse(BaseModel):
+    commentaries: List[CommentaryRead]
+
+
+class CommentarySearchResult(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    owner_display_name: Optional[str] = None
+
+
+class CommentaryEntryBase(BaseModel):
+    verse_id: int
+    content_markdown: str
+
+
+class CommentaryEntryCreate(CommentaryEntryBase):
+    pass
+
+
+class CommentaryEntryUpdate(BaseModel):
+    content_markdown: Optional[str] = None
+
+
+class CommentaryEntryRead(CommentaryEntryBase):
+    id: int
+    commentary_id: int
+    content_html: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class CommentaryEntryResponse(BaseModel):
+    entries: List[CommentaryEntryRead]
+
+
+class CommentarySubscriptionRead(BaseModel):
+    commentary_id: int
+    commentary_title: str
+    owner_id: int
+    owner_display_name: Optional[str] = None
+
+
+class UserProfileRead(BaseModel):
+    id: int
+    email: EmailStr
+    display_name: Optional[str] = None
+    avatar_url: str
+    note_count: int
+    notes: List[NoteRead]
+
+
 class BacklinksResponse(BaseModel):
     backlinks: List[BacklinkRead]
 

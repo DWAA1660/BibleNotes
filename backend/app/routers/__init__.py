@@ -1,1 +1,1 @@
-from . import auth, bible, notes  # noqa: F401
+from . import auth, bible, notes, users  # noqa: F401

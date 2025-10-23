@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, setToken } from "./api.js";
 import VersionSelector from "./components/VersionSelector.jsx";
 import BiblePane from "./components/BiblePane.jsx";
 import NotesPane from "./components/NotesPane.jsx";
 import CommentaryPane from "./components/CommentaryPane.jsx";
-import AccountPanel from "./components/AccountPanel.jsx";
+import ProfilePage from "./components/ProfilePage.jsx";
 
 const BOOKS = [
   "Genesis",
@@ -100,17 +101,14 @@ function App() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [selectedCommentaryId, setSelectedCommentaryId] = useState(null);
   const [commentaryEntries, setCommentaryEntries] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const [accountTab, setAccountTab] = useState("me");
-  const [myNotes, setMyNotes] = useState([]);
-  const [isLoadingMyNotes, setIsLoadingMyNotes] = useState(false);
-  const [accountError, setAccountError] = useState("");
-  const [userSearch, setUserSearch] = useState("");
-  const [authorResults, setAuthorResults] = useState([]);
-  const [selectedAuthor, setSelectedAuthor] = useState(null);
-  const [isLoadingAuthors, setIsLoadingAuthors] = useState(false);
-  const [isLoadingAuthorNotes, setIsLoadingAuthorNotes] = useState(false);
+  const [commentarySearchTerm, setCommentarySearchTerm] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [profileData, setProfileData] = useState(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   useEffect(() => {
     setToken(authToken);
@@ -220,19 +218,68 @@ function App() {
   }, [authToken]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadPublic() {
       setIsLoadingCommentaries(true);
       try {
-        const data = await api.fetchPublicCommentaries(searchTerm);
-        setPublicCommentaries(data);
+        const data = await api.fetchPublicCommentaries(commentarySearchTerm);
+        if (!cancelled) {
+          setPublicCommentaries(data);
+        }
       } catch {
-        setPublicCommentaries([]);
+        if (!cancelled) {
+          setPublicCommentaries([]);
+        }
       } finally {
-        setIsLoadingCommentaries(false);
+        if (!cancelled) {
+          setIsLoadingCommentaries(false);
+        }
       }
     }
     loadPublic();
-  }, [searchTerm]);
+    return () => {
+      cancelled = true;
+    };
+  }, [commentarySearchTerm]);
+
+  useEffect(() => {
+    setSearchInput(commentarySearchTerm);
+  }, [commentarySearchTerm]);
+
+  useEffect(() => {
+    if (location.pathname !== "/profile") {
+      setProfileError("");
+      return;
+    }
+    if (!authToken) {
+      setProfileData(null);
+      setProfileError("Login required");
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingProfile(true);
+    setProfileError("");
+    (async () => {
+      try {
+        const data = await api.fetchMyProfile();
+        if (!cancelled) {
+          setProfileData(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setProfileError(error.message || "Failed to load profile");
+          setProfileData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingProfile(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, authToken]);
 
   const selectedVerse = useMemo(() => {
     if (!chapterData) {
@@ -260,7 +307,7 @@ function App() {
         localStorage.setItem("authToken", token.access_token);
       }
       formEl.reset();
-      setIsAccountOpen(false);
+      setIsAuthOpen(false);
     } catch (error) {
       setAuthError(error.message || "Authentication failed");
     }
@@ -271,7 +318,10 @@ function App() {
     setToken(null);
     localStorage.removeItem("authToken");
     setSubscriptions([]);
-    setIsAccountOpen(false);
+    setProfileData(null);
+    if (location.pathname === "/profile") {
+      navigate("/");
+    }
   };
 
   const handleCreateNote = async payload => {
@@ -283,7 +333,6 @@ function App() {
       setNoteError("Select a verse first");
       return;
     }
-    setNoteError("");
     try {
       const end = payload.endVerseId || selectedVerseId;
       await api.createNote({
@@ -301,8 +350,19 @@ function App() {
     }
   };
 
-  const handleSearchChange = value => {
-    setSearchTerm(value);
+  const handleHeaderSearchSubmit = event => {
+    event.preventDefault();
+    setCommentarySearchTerm(searchInput.trim());
+    if (location.pathname !== "/") {
+      navigate("/");
+    }
+  };
+
+  const handleSearchInputChange = value => {
+    setSearchInput(value);
+    if (!value.trim()) {
+      setCommentarySearchTerm("");
+    }
   };
 
   const handleSubscribe = async commentaryId => {
@@ -331,215 +391,125 @@ function App() {
     }
   };
 
-  const handleToggleAccount = () => {
-    setIsAccountOpen(prev => !prev);
-  };
-
-  const handleAccountTabChange = tab => {
-    setAccountTab(tab);
-    setAccountError("");
-    if (tab === "me") {
-      setSelectedAuthor(null);
-    }
-  };
-
-  const handleUpdateNote = async (noteId, payload) => {
-    try {
-      const updated = await api.updateNote(noteId, payload);
-      setMyNotes(prev => prev.map(note => (note.id === noteId ? updated : note)));
-      if (selectedAuthor && selectedAuthor.author_id === updated.owner_id) {
-        setSelectedAuthor(prev =>
-          prev
-            ? {
-                ...prev,
-                notes: prev.notes.map(note => (note.id === noteId ? updated : note))
-              }
-            : prev
-        );
-      }
-      setAccountError("");
-      return updated;
-    } catch (error) {
-      setAccountError(error.message || "Failed to update note");
-      throw error;
-    }
-  };
-
-  const handleFetchAuthor = async authorId => {
-    setIsLoadingAuthorNotes(true);
-    setAccountError("");
-    try {
-      const data = await api.fetchAuthorNotes(authorId);
-      setSelectedAuthor(data);
-    } catch (error) {
-      setAccountError(error.message || "Failed to load author notes");
-      setSelectedAuthor(null);
-    } finally {
-      setIsLoadingAuthorNotes(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isAccountOpen) {
-      setAuthError("");
-      setAccountError("");
-    }
-  }, [isAccountOpen]);
-
-  useEffect(() => {
-    if (!isAccountOpen || !authToken || accountTab !== "me") {
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setIsLoadingMyNotes(true);
-      setAccountError("");
-      try {
-        const data = await api.fetchMyNotes();
-        if (!cancelled) {
-          setMyNotes(data.notes);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setAccountError(error.message || "Failed to load notes");
-          setMyNotes([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingMyNotes(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isAccountOpen, accountTab, authToken]);
-
-  useEffect(() => {
-    if (!isAccountOpen || accountTab !== "search") {
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setIsLoadingAuthors(true);
-      setAccountError("");
-      try {
-        const data = await api.searchAuthors(userSearch);
-        if (!cancelled) {
-          setAuthorResults(data.authors);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setAccountError(error.message || "Failed to search users");
-          setAuthorResults([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingAuthors(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isAccountOpen, accountTab, userSearch]);
-
   return (
     <div className="layout">
       <header className="app-header">
-        <div className="branding">Bible Notes</div>
-      </header>
-      <VersionSelector
-        versions={versions}
-        selectedVersion={selectedVersion}
-        onVersionChange={value => {
-          setSelectedVersion(value);
-          setSelectedVerseId(null);
-        }}
-        books={BOOKS}
-        selectedBook={selectedBook}
-        onBookChange={value => {
-          setSelectedBook(value);
-          setSelectedChapter(1);
-          setSelectedVerseId(null);
-        }}
-        chapter={selectedChapter}
-        onChapterChange={value => {
-          setSelectedChapter(value);
-          setSelectedVerseId(null);
-        }}
-        loadingChapter={isLoadingChapter}
-        actions={
-          <button type="button" onClick={handleToggleAccount}>
-            Account
-          </button>
-        }
-      />
-      {isAccountOpen ? (
-        <div className="account-panel">
+        <div className="branding" onClick={() => navigate("/")}>Bible Notes</div>
+        <form className="header-search" onSubmit={handleHeaderSearchSubmit}>
+          <input
+            type="search"
+            placeholder="Search commentaries"
+            value={searchInput}
+            onChange={event => handleSearchInputChange(event.target.value)}
+          />
+          <button type="submit">Search</button>
+        </form>
+        <div className="header-actions">
           {authToken ? (
-            <AccountPanel
-              onLogout={handleLogout}
-              error={accountError}
-              tab={accountTab}
-              onTabChange={handleAccountTabChange}
-              myNotes={myNotes}
-              isLoadingMyNotes={isLoadingMyNotes}
-              onUpdateNote={handleUpdateNote}
-              searchTerm={userSearch}
-              onSearchChange={setUserSearch}
-              authorResults={authorResults}
-              onSelectAuthor={handleFetchAuthor}
-              selectedAuthor={selectedAuthor}
-              isLoadingAuthors={isLoadingAuthors}
-              isLoadingAuthorNotes={isLoadingAuthorNotes}
-            />
+            <>
+              <button type="button" onClick={() => navigate("/profile")}>Profile</button>
+              <button type="button" onClick={handleLogout}>Logout</button>
+            </>
           ) : (
-            <form className="auth-form" onSubmit={handleAuthSubmit}>
-              <select value={authMode} onChange={event => setAuthMode(event.target.value)}>
-                <option value="login">Login</option>
-                <option value="signup">Signup</option>
-              </select>
-              <input name="email" type="email" placeholder="Email" required />
-              <input name="password" type="password" placeholder="Password" required />
-              {authMode === "signup" ? (
-                <input name="displayName" type="text" placeholder="Display name" />
-              ) : null}
-              <button type="submit">Submit</button>
-            </form>
+            <button type="button" onClick={() => setIsAuthOpen(prev => !prev)}>
+              {isAuthOpen ? "Close" : "Login / Signup"}
+            </button>
           )}
-          {authToken ? null : authError ? <div className="error-text">{authError}</div> : null}
         </div>
+      </header>
+      {!authToken && isAuthOpen ? (
+        <form className="auth-form" onSubmit={handleAuthSubmit}>
+          <select value={authMode} onChange={event => setAuthMode(event.target.value)}>
+            <option value="login">Login</option>
+            <option value="signup">Signup</option>
+          </select>
+          <input name="email" type="email" placeholder="Email" required />
+          <input name="password" type="password" placeholder="Password" required />
+          {authMode === "signup" ? (
+            <input name="displayName" type="text" placeholder="Display name" />
+          ) : null}
+          <button type="submit">Submit</button>
+        </form>
       ) : null}
-      <div className="panes">
-        <NotesPane
-          notes={notes}
-          selectedVerse={selectedVerse}
-          onCreateNote={handleCreateNote}
-          verses={chapterData ? chapterData.verses : []}
-          noteError={noteError}
-          isLoading={isLoadingNotes}
-          isAuthenticated={Boolean(authToken)}
+      {!authToken && authError ? <div className="error-text">{authError}</div> : null}
+      {location.pathname === "/" ? (
+        <VersionSelector
+          versions={versions}
+          selectedVersion={selectedVersion}
+          onVersionChange={value => {
+            setSelectedVersion(value);
+            setSelectedVerseId(null);
+          }}
+          books={BOOKS}
+          selectedBook={selectedBook}
+          onBookChange={value => {
+            setSelectedBook(value);
+            setSelectedChapter(1);
+            setSelectedVerseId(null);
+          }}
+          chapter={selectedChapter}
+          onChapterChange={value => {
+            setSelectedChapter(value);
+            setSelectedVerseId(null);
+          }}
+          loadingChapter={isLoadingChapter}
         />
-        <BiblePane
-          chapterData={chapterData}
-          selectedVerseId={selectedVerseId}
-          onSelectVerse={setSelectedVerseId}
-          isLoading={isLoadingChapter}
-        />
-        <CommentaryPane
-          publicCommentaries={publicCommentaries}
-          subscriptions={subscriptions}
-          selectedCommentaryId={selectedCommentaryId}
-          onSelectCommentary={handleSelectCommentary}
-          onSubscribe={handleSubscribe}
-          commentaryEntries={commentaryEntries}
-          onSearch={handleSearchChange}
-          searchTerm={searchTerm}
-          isAuthenticated={Boolean(authToken)}
-          isLoading={isLoadingCommentaries}
-        />
-      </div>
+      ) : (
+        <div className="toolbar-placeholder">
+          <h2>Profile</h2>
+        </div>
+      )}
+      <main className="main-content">
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <div className="panes">
+                <NotesPane
+                  notes={notes}
+                  selectedVerse={selectedVerse}
+                  onCreateNote={handleCreateNote}
+                  verses={chapterData ? chapterData.verses : []}
+                  noteError={noteError}
+                  isLoading={isLoadingNotes}
+                  isAuthenticated={Boolean(authToken)}
+                />
+                <BiblePane
+                  chapterData={chapterData}
+                  selectedVerseId={selectedVerseId}
+                  onSelectVerse={setSelectedVerseId}
+                  isLoading={isLoadingChapter}
+                />
+                <CommentaryPane
+                  publicCommentaries={publicCommentaries}
+                  subscriptions={subscriptions}
+                  selectedCommentaryId={selectedCommentaryId}
+                  onSelectCommentary={handleSelectCommentary}
+                  onSubscribe={handleSubscribe}
+                  commentaryEntries={commentaryEntries}
+                  isAuthenticated={Boolean(authToken)}
+                  isLoading={isLoadingCommentaries}
+                />
+              </div>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <div className="profile-container">
+                {isLoadingProfile ? (
+                  <div className="loading-state">Loading profile...</div>
+                ) : profileError ? (
+                  <div className="error-text">{profileError}</div>
+                ) : (
+                  <ProfilePage profile={profileData} />
+                )}
+              </div>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
     </div>
   );
 }

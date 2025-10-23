@@ -154,5 +154,8 @@ export const api = {
     return request(`/notes/${noteId}`, {
       method: "DELETE"
     });
+  },
+  fetchMyProfile() {
+    return request("/users/me/profile");
   }
 };
