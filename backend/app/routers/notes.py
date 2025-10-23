@@ -31,7 +31,46 @@ def get_author_label(user: User) -> str:
     return user.display_name or user.email
 
 
-def serialize_note(note: Note) -> NoteRead:
+def _verses_text_for_note(session: Session, note: Note) -> list[str]:
+    start = note.anchor_start
+    end = note.anchor_end
+    if not start or not end:
+        return []
+
+    # Same book enforced by validation. Collect all verses within [start, end].
+    # If range is within a single chapter, constrain to BETWEEN start.verse and end.verse.
+    if start.chapter == end.chapter:
+        stmt = (
+            select(Verse)
+            .where(
+                Verse.version_code == note.version_code,
+                Verse.book == start.book,
+                Verse.chapter == start.chapter,
+                Verse.verse >= start.verse,
+                Verse.verse <= end.verse,
+            )
+            .order_by(Verse.chapter.asc(), Verse.verse.asc())
+        )
+    else:
+        stmt = (
+            select(Verse)
+            .where(
+                Verse.version_code == note.version_code,
+                Verse.book == start.book,
+                (
+                    ((Verse.chapter == start.chapter) & (Verse.verse >= start.verse))
+                    | ((Verse.chapter == end.chapter) & (Verse.verse <= end.verse))
+                    | ((Verse.chapter > start.chapter) & (Verse.chapter < end.chapter))
+                ),
+            )
+            .order_by(Verse.chapter.asc(), Verse.verse.asc())
+        )
+    verses = session.exec(stmt).all()
+    return [f"{v.chapter}:{v.verse} {v.text}" for v in verses]
+
+
+def serialize_note(session: Session, note: Note) -> NoteRead:
+    verses_text = _verses_text_for_note(session, note)
     return NoteRead(
         id=note.id,
         title=note.title,
@@ -52,6 +91,7 @@ def serialize_note(note: Note) -> NoteRead:
         created_at=note.created_at,
         updated_at=note.updated_at,
         cross_references=[ref.canonical_id for ref in note.cross_references],
+        verses_text=verses_text,
     )
 
 
@@ -130,7 +170,7 @@ def list_my_notes(
         .order_by(Note.updated_at.desc())
     ).all()
 
-    return NotesResponse(notes=[serialize_note(note) for note in notes])
+    return NotesResponse(notes=[serialize_note(session, note) for note in notes])
 
 
 @router.get("/{version_code}/{book}/{chapter}", response_model=NotesResponse)
@@ -167,7 +207,7 @@ def list_notes(
         elif current_user and note.owner_id == current_user.id:
             visible_notes.append(note)
 
-    return NotesResponse(notes=[serialize_note(note) for note in visible_notes])
+    return NotesResponse(notes=[serialize_note(session, note) for note in visible_notes])
 
 
 @router.get("/authors/public", response_model=AuthorListResponse)
@@ -232,7 +272,7 @@ def get_author_notes(
     return AuthorNotesRead(
         author_id=author.id,
         author_display_name=get_author_label(author),
-        notes=[serialize_note(note) for note in notes],
+        notes=[serialize_note(session, note) for note in notes],
     )
 
 
@@ -350,7 +390,7 @@ def list_subscribed_notes(
             AuthorNotesRead(
                 author_id=author.id,
                 author_display_name=get_author_label(author),
-                notes=[serialize_note(note) for note in author_notes],
+                notes=[serialize_note(session, note) for note in author_notes],
             )
         )
 
@@ -399,7 +439,7 @@ def create_note(
     session.commit()
     session.refresh(note)
 
-    return serialize_note(note)
+    return serialize_note(session, note)
 
 
 @router.put("/{note_id}", response_model=NoteRead)
@@ -448,7 +488,7 @@ def update_note(
     session.commit()
     session.refresh(note)
 
-    return serialize_note(note)
+    return serialize_note(session, note)
 
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)

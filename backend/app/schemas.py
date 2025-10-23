@@ -103,6 +103,7 @@ class NoteRead(NoteBase):
     created_at: datetime
     updated_at: datetime
     cross_references: List[str] = Field(default_factory=list)
+    verses_text: List[str] = Field(default_factory=list)
 
     class Config:
         orm_mode = True
@@ -236,3 +237,14 @@ class AuthorListResponse(BaseModel):
 
 class AuthorSubscriptionListResponse(BaseModel):
     subscriptions: List[AuthorSubscriptionRead]
+
+
+# User search results
+class UserSearchResult(BaseModel):
+    id: int
+    email: EmailStr
+    display_name: Optional[str] = None
+
+
+class UserListResponse(BaseModel):
+    users: List[UserSearchResult]

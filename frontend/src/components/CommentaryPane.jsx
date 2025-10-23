@@ -1,12 +1,19 @@
 import PropTypes from "prop-types";
+
+function formatReference(note) {
+  if (!note) return "";
+  const start = `${note.start_book} ${note.start_chapter}:${note.start_verse}`;
+  const end = `${note.end_book} ${note.end_chapter}:${note.end_verse}`;
+  const range = start === end ? start : `${start} – ${end}`;
+  return note.version_code ? `${range} · ${note.version_code}` : range;
+}
+
 function CommentaryPane({
-  publicCommentaries,
-  subscriptions,
-  selectedCommentaryId,
-  onSelectCommentary,
-  onSubscribe,
-  commentaryEntries,
   isAuthenticated,
+  authors,
+  selectedAuthorId,
+  onSelectAuthor,
+  authorNotes,
   isLoading
 }) {
   return (
@@ -15,68 +22,50 @@ function CommentaryPane({
       <div className="pane-content">
         <div className="commentary-section">
           <div className="section-title">My Subscriptions</div>
-          {subscriptions.length ? (
-            <div className="subscription-list">
-              {subscriptions.map(sub => (
-                <div
-                  key={sub.commentary_id}
-                  className={`commentary-item${sub.commentary_id === selectedCommentaryId ? " active" : ""}`}
-                  onClick={() => onSelectCommentary(sub.commentary_id)}
+          {isAuthenticated ? (
+            authors.length ? (
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <select
+                  value={selectedAuthorId || ""}
+                  onChange={event => onSelectAuthor(Number(event.target.value))}
                 >
-                  <div>{sub.commentary_title}</div>
-                  <div className="note-meta">By {sub.owner_display_name || "Unknown"}</div>
-                </div>
-              ))}
-            </div>
+                  <option value="" disabled>
+                    Select a commentator
+                  </option>
+                  {authors.map(a => (
+                    <option key={a.author_id} value={a.author_id}>
+                      {a.author_display_name || "Unknown"}
+                    </option>
+                  ))}
+                </select>
+                {selectedAuthorId ? (
+                  <button type="button" aria-label="Clear selection" onClick={() => onSelectAuthor(null)}>×</button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="empty-state">No subscriptions yet.</div>
+            )
           ) : (
-            <div className="empty-state">No subscriptions yet.</div>
+            <div className="empty-state">Login to view your subscriptions.</div>
           )}
         </div>
 
         <div className="commentary-section">
-          <div className="section-title">Public Commentaries</div>
+          <div className="section-title">Selected Commentator</div>
           {isLoading ? (
-            <div className="loading-state">Searching...</div>
-          ) : publicCommentaries.length ? (
-            <div className="commentary-list">
-              {publicCommentaries.map(commentary => (
-                <div
-                  key={commentary.id}
-                  className={`commentary-item${commentary.id === selectedCommentaryId ? " active" : ""}`}
-                >
-                  <div>{commentary.title}</div>
-                  <div className="note-meta">By {commentary.owner_display_name || "Unknown"}</div>
-                  {isAuthenticated ? (
-                    <button type="button" onClick={() => onSubscribe(commentary.id)}>
-                      Subscribe
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={() => onSelectCommentary(commentary.id)}>
-                    View
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">No public commentaries found.</div>
-          )}
-        </div>
-
-        <div className="commentary-section">
-          <div className="section-title">Selected Commentary</div>
-          {commentaryEntries.length ? (
+            <div className="loading-state">Loading notes…</div>
+          ) : authorNotes.length ? (
             <div className="entries-list">
-              {commentaryEntries.map(entry => (
-                <div key={entry.id} className="entry-card">
-                  <div className="note-meta">
-                    Verse ID: {entry.verse_id} · {new Date(entry.updated_at).toLocaleString()}
-                  </div>
-                  <div dangerouslySetInnerHTML={{ __html: entry.content_html }} />
+              {authorNotes.map(note => (
+                <div key={note.id} className="entry-card">
+                  <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
+                  <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
+                  <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
                 </div>
               ))}
             </div>
           ) : (
-            <div className="empty-state">Select a commentary to view entries.</div>
+            <div className="empty-state">Select a commentator to view notes for this chapter.</div>
           )}
         </div>
       </div>
@@ -85,19 +74,22 @@ function CommentaryPane({
 }
 
 CommentaryPane.propTypes = {
-  publicCommentaries: PropTypes.array.isRequired,
-  subscriptions: PropTypes.array.isRequired,
-  selectedCommentaryId: PropTypes.number,
-  onSelectCommentary: PropTypes.func.isRequired,
-  onSubscribe: PropTypes.func.isRequired,
-  commentaryEntries: PropTypes.array.isRequired,
   isAuthenticated: PropTypes.bool,
+  authors: PropTypes.arrayOf(
+    PropTypes.shape({
+      author_id: PropTypes.number.isRequired,
+      author_display_name: PropTypes.string
+    })
+  ).isRequired,
+  selectedAuthorId: PropTypes.number,
+  onSelectAuthor: PropTypes.func.isRequired,
+  authorNotes: PropTypes.array.isRequired,
   isLoading: PropTypes.bool
 };
 
 CommentaryPane.defaultProps = {
-  selectedCommentaryId: null,
   isAuthenticated: false,
+  selectedAuthorId: null,
   isLoading: false
 };
 

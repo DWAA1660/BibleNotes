@@ -84,12 +84,23 @@ def search_public_commentaries(
     session: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
 ) -> List[CommentarySearchResult]:
-    stmt = select(Commentary).where(Commentary.is_public.is_(True)).options(selectinload(Commentary.owner))
+    stmt = (
+        select(Commentary)
+        .where(Commentary.is_public.is_(True))
+        .options(selectinload(Commentary.owner))
+    )
 
     if query:
         like = f"%{query}%"
-        stmt = stmt.where(
-            Commentary.title.ilike(like) | Commentary.description.ilike(like)
+        # Also search by commentator (owner) display name or email
+        stmt = (
+            stmt.join(User, User.id == Commentary.owner_id)
+            .where(
+                Commentary.title.ilike(like)
+                | Commentary.description.ilike(like)
+                | User.display_name.ilike(like)
+                | User.email.ilike(like)
+            )
         )
 
     commentaries = session.exec(stmt.order_by(Commentary.title)).all()

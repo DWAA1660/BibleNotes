@@ -88,6 +88,9 @@ export const api = {
       method: "DELETE"
     });
   },
+  fetchUserSubscriptions(userId) {
+    return request(`/users/${userId}/subscriptions`);
+  },
   fetchSubscribedNotes(params = {}) {
     const query = new URLSearchParams();
     if (params.version) {
@@ -157,5 +160,10 @@ export const api = {
   },
   fetchMyProfile() {
     return request("/users/me/profile");
+  },
+  searchUsers(query) {
+    const term = query?.trim();
+    const suffix = term ? `?query=${encodeURIComponent(term)}` : "";
+    return request(`/users/search${suffix}`);
   }
 };

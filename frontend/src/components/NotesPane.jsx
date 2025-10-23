@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../api";
 
 function formatReference(note) {
   if (!note) {
@@ -7,13 +8,15 @@ function formatReference(note) {
   }
   const start = `${note.start_book} ${note.start_chapter}:${note.start_verse}`;
   const end = `${note.end_book} ${note.end_chapter}:${note.end_verse}`;
-  return start === end ? start : `${start} – ${end}`;
+  const range = start === end ? start : `${start} – ${end}`;
+  return note.version_code ? `${range} · ${note.version_code}` : range;
 }
 
 function NotesPane({
   notes,
   selectedVerse = null,
   onCreateNote,
+  onUpdateNote,
   verses,
   noteError = "",
   isLoading = false,
@@ -24,6 +27,13 @@ function NotesPane({
   const [content, setContent] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [endVerseId, setEndVerseId] = useState(null);
+
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editIsPublic, setEditIsPublic] = useState(false);
+  const [editEndVerseId, setEditEndVerseId] = useState(null);
+  const [editEndOptions, setEditEndOptions] = useState([]);
 
   const verseOptions = useMemo(() => {
     if (!selectedVerse) {
@@ -51,6 +61,45 @@ function NotesPane({
     setContent("");
     setIsPublic(false);
     setEndVerseId(null);
+  };
+
+  const beginEdit = async note => {
+    setEditingNoteId(note.id);
+    setEditTitle(note.title || "");
+    setEditContent(note.content_markdown || "");
+    setEditIsPublic(Boolean(note.is_public));
+    setEditEndVerseId(note.end_verse_id);
+    try {
+      const chapter = await api.fetchChapter(note.version_code, note.start_book, note.start_chapter);
+      const startIdx = chapter.verses.findIndex(v => v.id === note.start_verse_id);
+      const options = (startIdx >= 0 ? chapter.verses.slice(startIdx) : chapter.verses).map(v => ({ id: v.id, label: `${v.chapter}:${v.verse}` }));
+      setEditEndOptions(options);
+    } catch {
+      setEditEndOptions([]);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingNoteId(null);
+    setEditTitle("");
+    setEditContent("");
+    setEditIsPublic(false);
+    setEditEndVerseId(null);
+    setEditEndOptions([]);
+  };
+
+  const saveEdit = async original => {
+    const payload = {};
+    if ((editTitle || "") !== (original.title || "")) payload.title = editTitle;
+    if ((editContent || "") !== (original.content_markdown || "")) payload.content_markdown = editContent;
+    if (Boolean(editIsPublic) !== Boolean(original.is_public)) payload.is_public = editIsPublic;
+    if (Number(editEndVerseId) !== Number(original.end_verse_id)) payload.end_verse_id = Number(editEndVerseId);
+    if (Object.keys(payload).length === 0) {
+      cancelEdit();
+      return;
+    }
+    await onUpdateNote(original.id, payload);
+    cancelEdit();
   };
 
   return (
@@ -116,20 +165,64 @@ function NotesPane({
           <div className="notes-list">
             {notes.map(note => (
               <div key={note.id} className="note-card">
-                <div className="note-header">
-                  <span className="note-title">{note.title || "Untitled"}</span>
-                  <span className="note-meta">
-                    {note.is_public ? "Public" : "Private"} · {new Date(note.updated_at).toLocaleString()}
-                  </span>
-                </div>
-                <div className="note-meta">{formatReference(note)}</div>
-                {note.owner_display_name && (!currentUser || currentUser.id !== note.owner_id) ? (
-                  <div className="note-meta">By {note.owner_display_name}</div>
-                ) : null}
-                <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
-                {note.cross_references.length ? (
-                  <div className="note-meta">References: {note.cross_references.join(", ")}</div>
-                ) : null}
+                {editingNoteId === note.id ? (
+                  <form className="notes-form" onSubmit={e => { e.preventDefault(); saveEdit(note); }}>
+                    <input
+                      type="text"
+                      placeholder="Note title"
+                      value={editTitle}
+                      onChange={e => setEditTitle(e.target.value)}
+                    />
+                    <textarea
+                      placeholder="Markdown content"
+                      value={editContent}
+                      onChange={e => setEditContent(e.target.value)}
+                    />
+                    <div className="notes-form-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={editIsPublic}
+                          onChange={e => setEditIsPublic(e.target.checked)}
+                        />
+                        Public
+                      </label>
+                      <select
+                        value={editEndVerseId || ""}
+                        onChange={e => setEditEndVerseId(e.target.value || null)}
+                      >
+                        <option value="">Single verse</option>
+                        {editEndOptions.map(opt => (
+                          <option key={opt.id} value={opt.id}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button type="submit">Save</button>
+                      <button type="button" onClick={cancelEdit}>Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="note-header">
+                      <span className="note-title">{note.title || "Untitled"}</span>
+                      <span className="note-meta">
+                        {note.is_public ? "Public" : "Private"} · {new Date(note.updated_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="note-meta">{formatReference(note)}</div>
+                    {note.owner_display_name && (!currentUser || currentUser.id !== note.owner_id) ? (
+                      <div className="note-meta">By {note.owner_display_name}</div>
+                    ) : null}
+                    <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                    {note.cross_references.length ? (
+                      <div className="note-meta">References: {note.cross_references.join(", ")}</div>
+                    ) : null}
+                    <div style={{ marginTop: "0.5rem" }}>
+                      <button type="button" onClick={() => beginEdit(note)}>Edit</button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -149,6 +242,7 @@ NotesPane.propTypes = {
     verse: PropTypes.number.isRequired
   }),
   onCreateNote: PropTypes.func.isRequired,
+  onUpdateNote: PropTypes.func.isRequired,
   verses: PropTypes.array.isRequired,
   noteError: PropTypes.string,
   isLoading: PropTypes.bool,

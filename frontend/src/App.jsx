@@ -5,6 +5,8 @@ import VersionSelector from "./components/VersionSelector.jsx";
 import BiblePane from "./components/BiblePane.jsx";
 import NotesPane from "./components/NotesPane.jsx";
 import CommentaryPane from "./components/CommentaryPane.jsx";
+import SearchPage from "./components/SearchPage.jsx";
+import UserProfilePage from "./components/UserProfilePage.jsx";
 import ProfilePage from "./components/ProfilePage.jsx";
 
 const BOOKS = [
@@ -97,10 +99,12 @@ function App() {
   const [isLoadingChapter, setIsLoadingChapter] = useState(false);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [isLoadingCommentaries, setIsLoadingCommentaries] = useState(false);
-  const [publicCommentaries, setPublicCommentaries] = useState([]);
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [selectedCommentaryId, setSelectedCommentaryId] = useState(null);
-  const [commentaryEntries, setCommentaryEntries] = useState([]);
+  const [authorSubscriptions, setAuthorSubscriptions] = useState([]);
+  const [selectedAuthorId, setSelectedAuthorId] = useState(() => {
+    const stored = localStorage.getItem("selectedAuthorId");
+    return stored ? Number(stored) || null : null;
+  });
+  const [authorNotes, setAuthorNotes] = useState([]);
   const [commentarySearchTerm, setCommentarySearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const location = useLocation();
@@ -190,8 +194,16 @@ function App() {
         setIsLoadingChapter(false);
       }
       try {
-        const noteData = await api.fetchNotes(selectedVersion, selectedBook, selectedChapter);
-        setNotes(noteData.notes);
+        if (authToken) {
+          const my = await api.fetchMyNotes();
+          const filtered = my.notes.filter(n =>
+            n.start_book === selectedBook &&
+            n.start_chapter === selectedChapter
+          );
+          setNotes(filtered);
+        } else {
+          setNotes([]);
+        }
       } catch {
         setNotes([]);
       } finally {
@@ -199,56 +211,28 @@ function App() {
       }
     }
     loadChapterAndNotes();
-  }, [selectedVersion, selectedBook, selectedChapter]);
+  }, [selectedVersion, selectedBook, selectedChapter, authToken]);
 
   useEffect(() => {
-    async function loadSubscriptions() {
+    async function loadAuthorSubscriptions() {
       if (!authToken) {
-        setSubscriptions([]);
+        setAuthorSubscriptions([]);
         return;
       }
       try {
-        const data = await api.fetchCommentarySubscriptions();
-        setSubscriptions(data);
+        const data = await api.fetchNoteSubscriptions();
+        setAuthorSubscriptions(data.subscriptions || []);
       } catch {
-        setSubscriptions([]);
+        setAuthorSubscriptions([]);
       }
     }
-    loadSubscriptions();
+    loadAuthorSubscriptions();
   }, [authToken]);
 
+  // Load my profile data when viewing /profile
   useEffect(() => {
-    let cancelled = false;
-    async function loadPublic() {
-      setIsLoadingCommentaries(true);
-      try {
-        const data = await api.fetchPublicCommentaries(commentarySearchTerm);
-        if (!cancelled) {
-          setPublicCommentaries(data);
-        }
-      } catch {
-        if (!cancelled) {
-          setPublicCommentaries([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingCommentaries(false);
-        }
-      }
-    }
-    loadPublic();
-    return () => {
-      cancelled = true;
-    };
-  }, [commentarySearchTerm]);
-
-  useEffect(() => {
-    setSearchInput(commentarySearchTerm);
-  }, [commentarySearchTerm]);
-
-  useEffect(() => {
-    if (location.pathname !== "/profile") {
-      setProfileError("");
+    const onProfile = location.pathname === "/profile" || location.pathname === "/profile/";
+    if (!onProfile) {
       return;
     }
     if (!authToken) {
@@ -280,6 +264,72 @@ function App() {
       cancelled = true;
     };
   }, [location.pathname, authToken]);
+
+  useEffect(() => {
+    if (selectedAuthorId) {
+      localStorage.setItem("selectedAuthorId", String(selectedAuthorId));
+    } else {
+      localStorage.removeItem("selectedAuthorId");
+    }
+  }, [selectedAuthorId]);
+
+  useEffect(() => {
+    if (!selectedAuthorId) {
+      setAuthorNotes([]);
+      return;
+    }
+    (async () => {
+      setIsLoadingCommentaries(true);
+      try {
+        const data = await api.fetchAuthorNotes(selectedAuthorId);
+        const filtered = (data.notes || []).filter(n => n.start_book === selectedBook && n.start_chapter === selectedChapter);
+        setAuthorNotes(filtered);
+      } catch {
+        setAuthorNotes([]);
+      } finally {
+        setIsLoadingCommentaries(false);
+      }
+    })();
+  }, [selectedAuthorId, selectedBook, selectedChapter, chapterData]);
+
+  const handleSubscribeAuthor = async authorId => {
+    if (!authToken) return;
+    try {
+      const sub = await api.subscribeAuthor(authorId);
+      setAuthorSubscriptions(prev => {
+        const exists = prev.find(s => s.author_id === sub.author_id);
+        return exists ? prev : [...prev, sub];
+      });
+    } catch {}
+  };
+
+  const handleSelectAsCommentator = async authorId => {
+    await handleSubscribeAuthor(authorId);
+    await handleSelectAuthor(authorId);
+    navigate("/");
+  };
+
+  const handleUnsubscribeAuthor = async authorId => {
+    if (!authToken) return;
+    try {
+      await api.unsubscribeAuthor(authorId);
+      setAuthorSubscriptions(prev => prev.filter(s => s.author_id !== authorId));
+    } catch {}
+  };
+
+  const handleSelectAuthor = async authorId => {
+    setSelectedAuthorId(authorId || null);
+    setIsLoadingCommentaries(true);
+    try {
+      const data = await api.fetchAuthorNotes(authorId);
+      const filtered = (data.notes || []).filter(n => n.start_book === selectedBook && n.start_chapter === selectedChapter);
+      setAuthorNotes(filtered);
+    } catch {
+      setAuthorNotes([]);
+    } finally {
+      setIsLoadingCommentaries(false);
+    }
+  };
 
   const selectedVerse = useMemo(() => {
     if (!chapterData) {
@@ -317,7 +367,10 @@ function App() {
     setAuthToken(null);
     setToken(null);
     localStorage.removeItem("authToken");
-    setSubscriptions([]);
+    setAuthorSubscriptions([]);
+    setSelectedAuthorId(null);
+    setAuthorNotes([]);
+    localStorage.removeItem("selectedAuthorId");
     setProfileData(null);
     if (location.pathname === "/profile") {
       navigate("/");
@@ -343,8 +396,15 @@ function App() {
         end_verse_id: end,
         is_public: payload.isPublic
       });
-      const noteData = await api.fetchNotes(selectedVersion, selectedBook, selectedChapter);
-      setNotes(noteData.notes);
+      if (authToken) {
+        const my = await api.fetchMyNotes();
+        const filtered = my.notes.filter(n =>
+          n.version_code === selectedVersion &&
+          n.start_book === selectedBook &&
+          n.start_chapter === selectedChapter
+        );
+        setNotes(filtered);
+      }
     } catch (error) {
       setNoteError(error.message || "Failed to create note");
     }
@@ -352,42 +412,14 @@ function App() {
 
   const handleHeaderSearchSubmit = event => {
     event.preventDefault();
-    setCommentarySearchTerm(searchInput.trim());
-    if (location.pathname !== "/") {
-      navigate("/");
-    }
+    const q = searchInput.trim();
+    navigate(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
   };
 
   const handleSearchInputChange = value => {
     setSearchInput(value);
     if (!value.trim()) {
       setCommentarySearchTerm("");
-    }
-  };
-
-  const handleSubscribe = async commentaryId => {
-    if (!authToken) {
-      return;
-    }
-    try {
-      const subscription = await api.subscribeCommentary(commentaryId);
-      setSubscriptions(prev => {
-        const exists = prev.find(item => item.commentary_id === subscription.commentary_id);
-        if (exists) {
-          return prev;
-        }
-        return [...prev, subscription];
-      });
-    } catch {}
-  };
-
-  const handleSelectCommentary = async commentaryId => {
-    setSelectedCommentaryId(commentaryId);
-    try {
-      const entries = await api.fetchCommentaryEntries(commentaryId, selectedVerseId || undefined);
-      setCommentaryEntries(entries.entries);
-    } catch {
-      setCommentaryEntries([]);
     }
   };
 
@@ -398,7 +430,7 @@ function App() {
         <form className="header-search" onSubmit={handleHeaderSearchSubmit}>
           <input
             type="search"
-            placeholder="Search commentaries"
+            placeholder="Search commentaries or users"
             value={searchInput}
             onChange={event => handleSearchInputChange(event.target.value)}
           />
@@ -469,6 +501,21 @@ function App() {
                   notes={notes}
                   selectedVerse={selectedVerse}
                   onCreateNote={handleCreateNote}
+                  onUpdateNote={async (noteId, payload) => {
+                    try {
+                      await api.updateNote(noteId, payload);
+                      if (authToken) {
+                        const my = await api.fetchMyNotes();
+                        const filtered = my.notes.filter(n =>
+                          n.start_book === selectedBook &&
+                          n.start_chapter === selectedChapter
+                        );
+                        setNotes(filtered);
+                      }
+                    } catch (e) {
+                      setNoteError(e.message || "Failed to update note");
+                    }
+                  }}
                   verses={chapterData ? chapterData.verses : []}
                   noteError={noteError}
                   isLoading={isLoadingNotes}
@@ -481,16 +528,39 @@ function App() {
                   isLoading={isLoadingChapter}
                 />
                 <CommentaryPane
-                  publicCommentaries={publicCommentaries}
-                  subscriptions={subscriptions}
-                  selectedCommentaryId={selectedCommentaryId}
-                  onSelectCommentary={handleSelectCommentary}
-                  onSubscribe={handleSubscribe}
-                  commentaryEntries={commentaryEntries}
                   isAuthenticated={Boolean(authToken)}
+                  authors={authorSubscriptions}
+                  selectedAuthorId={selectedAuthorId}
+                  onSelectAuthor={handleSelectAuthor}
+                  authorNotes={authorNotes}
                   isLoading={isLoadingCommentaries}
                 />
               </div>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <SearchPage
+                query={new URLSearchParams(location.search).get("q") || ""}
+                onSubscribeAuthor={handleSubscribeAuthor}
+                onUnsubscribeAuthor={handleUnsubscribeAuthor}
+                subscriptions={authorSubscriptions}
+                onOpenAuthor={id => navigate(`/users/${id}`)}
+                isAuthenticated={Boolean(authToken)}
+              />
+            }
+          />
+          <Route
+            path="/users/:id"
+            element={
+              <UserProfilePage
+                onSelectAsCommentator={handleSelectAsCommentator}
+                isAuthenticated={Boolean(authToken)}
+                subscriptions={authorSubscriptions}
+                onSubscribeAuthor={handleSubscribeAuthor}
+                onUnsubscribeAuthor={handleUnsubscribeAuthor}
+              />
             }
           />
           <Route
@@ -502,7 +572,21 @@ function App() {
                 ) : profileError ? (
                   <div className="error-text">{profileError}</div>
                 ) : (
-                  <ProfilePage profile={profileData} />
+                  <ProfilePage
+                    profile={profileData}
+                    isOwnProfile={true}
+                    subscriptions={authorSubscriptions}
+                    onUnsubscribeAuthor={handleUnsubscribeAuthor}
+                    onUpdateNote={async (noteId, payload) => {
+                      try {
+                        await api.updateNote(noteId, payload);
+                        const data = await api.fetchMyProfile();
+                        setProfileData(data);
+                      } catch (e) {
+                        setProfileError(e.message || "Failed to update note");
+                      }
+                    }}
+                  />
                 )}
               </div>
             }
