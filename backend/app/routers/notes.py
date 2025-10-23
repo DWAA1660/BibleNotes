@@ -43,6 +43,12 @@ def serialize_note(note: Note) -> NoteRead:
         is_public=note.is_public,
         owner_id=note.owner_id,
         owner_display_name=(note.owner.display_name or note.owner.email) if note.owner else None,
+        start_book=note.anchor_start.book if note.anchor_start else "",
+        start_chapter=note.anchor_start.chapter if note.anchor_start else 0,
+        start_verse=note.anchor_start.verse if note.anchor_start else 0,
+        end_book=note.anchor_end.book if note.anchor_end else "",
+        end_chapter=note.anchor_end.chapter if note.anchor_end else 0,
+        end_verse=note.anchor_end.verse if note.anchor_end else 0,
         created_at=note.created_at,
         updated_at=note.updated_at,
         cross_references=[ref.canonical_id for ref in note.cross_references],
@@ -169,6 +175,7 @@ def list_public_authors(
     version_code: Optional[str] = None,
     book: Optional[str] = None,
     chapter: Optional[int] = None,
+    query: Optional[str] = None,
     session: Session = Depends(get_db),
 ) -> AuthorListResponse:
     stmt = (
@@ -187,6 +194,10 @@ def list_public_authors(
         if chapter:
             stmt = stmt.where(Verse.chapter == chapter)
 
+    if query:
+        like_term = f"%{query.lower()}%"
+        stmt = stmt.where(func.lower(func.coalesce(User.display_name, User.email)).like(like_term))
+
     stmt = stmt.group_by(User.id, User.display_name, User.email).order_by(
         func.lower(func.coalesce(User.display_name, User.email))
     )
@@ -199,6 +210,30 @@ def list_public_authors(
         authors.append(AuthorSummary(author_id=author_id, author_display_name=label, public_note_count=count))
 
     return AuthorListResponse(authors=authors)
+
+
+@router.get("/authors/{author_id}", response_model=AuthorNotesRead)
+def get_author_notes(
+    author_id: int,
+    session: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+) -> AuthorNotesRead:
+    author = session.get(User, author_id)
+    if not author:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Author not found")
+
+    include_private = bool(current_user and current_user.id == author_id)
+    notes = fetch_author_notes(
+        session,
+        author_id=author_id,
+        include_private=include_private,
+    )
+
+    return AuthorNotesRead(
+        author_id=author.id,
+        author_display_name=get_author_label(author),
+        notes=[serialize_note(note) for note in notes],
+    )
 
 
 @router.get("/subscriptions", response_model=AuthorSubscriptionListResponse)

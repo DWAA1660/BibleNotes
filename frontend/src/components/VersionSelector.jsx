@@ -9,7 +9,8 @@ function VersionSelector({
   onBookChange,
   chapter,
   onChapterChange,
-  loadingChapter
+  loadingChapter = false,
+  actions = null
 }) {
   return (
     <div className="toolbar">
@@ -52,6 +53,7 @@ function VersionSelector({
         />
         {loadingChapter ? <span className="loading-state">Loading...</span> : null}
       </div>
+      {actions ? <div className="toolbar-buttons">{actions}</div> : null}
     </div>
   );
 }
@@ -71,11 +73,8 @@ VersionSelector.propTypes = {
   onBookChange: PropTypes.func.isRequired,
   chapter: PropTypes.number.isRequired,
   onChapterChange: PropTypes.func.isRequired,
-  loadingChapter: PropTypes.bool
-};
-
-VersionSelector.defaultProps = {
-  loadingChapter: false
+  loadingChapter: PropTypes.bool,
+  actions: PropTypes.node
 };
 
 export default VersionSelector;

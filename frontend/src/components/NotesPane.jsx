@@ -1,7 +1,25 @@
 import PropTypes from "prop-types";
 import { useMemo, useState } from "react";
 
-function NotesPane({ notes, selectedVerse, onCreateNote, verses, noteError, isLoading, isAuthenticated }) {
+function formatReference(note) {
+  if (!note) {
+    return "";
+  }
+  const start = `${note.start_book} ${note.start_chapter}:${note.start_verse}`;
+  const end = `${note.end_book} ${note.end_chapter}:${note.end_verse}`;
+  return start === end ? start : `${start} – ${end}`;
+}
+
+function NotesPane({
+  notes,
+  selectedVerse = null,
+  onCreateNote,
+  verses,
+  noteError = "",
+  isLoading = false,
+  isAuthenticated = false,
+  currentUser = null
+}) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isPublic, setIsPublic] = useState(false);
@@ -37,7 +55,7 @@ function NotesPane({ notes, selectedVerse, onCreateNote, verses, noteError, isLo
 
   return (
     <div className="pane">
-      <div className="pane-header">Notes</div>
+      <div className="pane-header">My Notes</div>
       <div className="pane-content">
         {selectedVerse ? (
           <div className="note-context">
@@ -104,6 +122,10 @@ function NotesPane({ notes, selectedVerse, onCreateNote, verses, noteError, isLo
                     {note.is_public ? "Public" : "Private"} · {new Date(note.updated_at).toLocaleString()}
                   </span>
                 </div>
+                <div className="note-meta">{formatReference(note)}</div>
+                {note.owner_display_name && (!currentUser || currentUser.id !== note.owner_id) ? (
+                  <div className="note-meta">By {note.owner_display_name}</div>
+                ) : null}
                 <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
                 {note.cross_references.length ? (
                   <div className="note-meta">References: {note.cross_references.join(", ")}</div>
@@ -130,14 +152,10 @@ NotesPane.propTypes = {
   verses: PropTypes.array.isRequired,
   noteError: PropTypes.string,
   isLoading: PropTypes.bool,
-  isAuthenticated: PropTypes.bool
-};
-
-NotesPane.defaultProps = {
-  selectedVerse: null,
-  noteError: "",
-  isLoading: false,
-  isAuthenticated: false
+  isAuthenticated: PropTypes.bool,
+  currentUser: PropTypes.shape({
+    id: PropTypes.number.isRequired
+  })
 };
 
 export default NotesPane;

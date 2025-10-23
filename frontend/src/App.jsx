@@ -4,6 +4,7 @@ import VersionSelector from "./components/VersionSelector.jsx";
 import BiblePane from "./components/BiblePane.jsx";
 import NotesPane from "./components/NotesPane.jsx";
 import CommentaryPane from "./components/CommentaryPane.jsx";
+import AccountPanel from "./components/AccountPanel.jsx";
 
 const BOOKS = [
   "Genesis",
@@ -76,12 +77,18 @@ const BOOKS = [
 
 function App() {
   const [versions, setVersions] = useState([]);
-  const [selectedVersion, setSelectedVersion] = useState("");
-  const [selectedBook, setSelectedBook] = useState("Genesis");
-  const [selectedChapter, setSelectedChapter] = useState(1);
+  const [selectedVersion, setSelectedVersion] = useState(() => localStorage.getItem("selectedVersion") || "");
+  const [selectedBook, setSelectedBook] = useState(() => localStorage.getItem("selectedBook") || "Genesis");
+  const [selectedChapter, setSelectedChapter] = useState(() => {
+    const stored = localStorage.getItem("selectedChapter");
+    return stored ? Number(stored) || 1 : 1;
+  });
   const [chapterData, setChapterData] = useState(null);
   const [notes, setNotes] = useState([]);
-  const [selectedVerseId, setSelectedVerseId] = useState(null);
+  const [selectedVerseId, setSelectedVerseId] = useState(() => {
+    const stored = localStorage.getItem("selectedVerseId");
+    return stored ? Number(stored) || null : null;
+  });
   const [authToken, setAuthToken] = useState(() => localStorage.getItem("authToken"));
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
@@ -94,6 +101,16 @@ function App() {
   const [selectedCommentaryId, setSelectedCommentaryId] = useState(null);
   const [commentaryEntries, setCommentaryEntries] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [accountTab, setAccountTab] = useState("me");
+  const [myNotes, setMyNotes] = useState([]);
+  const [isLoadingMyNotes, setIsLoadingMyNotes] = useState(false);
+  const [accountError, setAccountError] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [authorResults, setAuthorResults] = useState([]);
+  const [selectedAuthor, setSelectedAuthor] = useState(null);
+  const [isLoadingAuthors, setIsLoadingAuthors] = useState(false);
+  const [isLoadingAuthorNotes, setIsLoadingAuthorNotes] = useState(false);
 
   useEffect(() => {
     setToken(authToken);
@@ -105,7 +122,12 @@ function App() {
         const data = await api.fetchVersions();
         setVersions(data);
         if (data.length > 0) {
-          setSelectedVersion(prev => prev || data[0].code);
+          setSelectedVersion(prev => {
+            if (prev && data.some(item => item.code === prev)) {
+              return prev;
+            }
+            return data[0].code;
+          });
         }
       } catch {
         setVersions([]);
@@ -113,6 +135,38 @@ function App() {
     }
     loadVersions();
   }, []);
+
+  useEffect(() => {
+    if (selectedVersion) {
+      localStorage.setItem("selectedVersion", selectedVersion);
+    } else {
+      localStorage.removeItem("selectedVersion");
+    }
+  }, [selectedVersion]);
+
+  useEffect(() => {
+    if (selectedBook) {
+      localStorage.setItem("selectedBook", selectedBook);
+    } else {
+      localStorage.removeItem("selectedBook");
+    }
+  }, [selectedBook]);
+
+  useEffect(() => {
+    if (selectedChapter) {
+      localStorage.setItem("selectedChapter", String(selectedChapter));
+    } else {
+      localStorage.removeItem("selectedChapter");
+    }
+  }, [selectedChapter]);
+
+  useEffect(() => {
+    if (selectedVerseId) {
+      localStorage.setItem("selectedVerseId", String(selectedVerseId));
+    } else {
+      localStorage.removeItem("selectedVerseId");
+    }
+  }, [selectedVerseId]);
 
   useEffect(() => {
     if (!selectedVersion || !selectedBook || !selectedChapter) {
@@ -125,7 +179,12 @@ function App() {
         const data = await api.fetchChapter(selectedVersion, selectedBook, selectedChapter);
         setChapterData(data);
         if (data.verses.length > 0) {
-          setSelectedVerseId(prev => prev || data.verses[0].id);
+          setSelectedVerseId(prev => {
+            if (prev && data.verses.some(verse => verse.id === prev)) {
+              return prev;
+            }
+            return data.verses[0].id;
+          });
         }
       } catch {
         setChapterData(null);
@@ -151,7 +210,7 @@ function App() {
         return;
       }
       try {
-        const data = await api.fetchSubscriptions();
+        const data = await api.fetchCommentarySubscriptions();
         setSubscriptions(data);
       } catch {
         setSubscriptions([]);
@@ -201,6 +260,7 @@ function App() {
         localStorage.setItem("authToken", token.access_token);
       }
       formEl.reset();
+      setIsAccountOpen(false);
     } catch (error) {
       setAuthError(error.message || "Authentication failed");
     }
@@ -211,6 +271,7 @@ function App() {
     setToken(null);
     localStorage.removeItem("authToken");
     setSubscriptions([]);
+    setIsAccountOpen(false);
   };
 
   const handleCreateNote = async payload => {
@@ -270,31 +331,123 @@ function App() {
     }
   };
 
+  const handleToggleAccount = () => {
+    setIsAccountOpen(prev => !prev);
+  };
+
+  const handleAccountTabChange = tab => {
+    setAccountTab(tab);
+    setAccountError("");
+    if (tab === "me") {
+      setSelectedAuthor(null);
+    }
+  };
+
+  const handleUpdateNote = async (noteId, payload) => {
+    try {
+      const updated = await api.updateNote(noteId, payload);
+      setMyNotes(prev => prev.map(note => (note.id === noteId ? updated : note)));
+      if (selectedAuthor && selectedAuthor.author_id === updated.owner_id) {
+        setSelectedAuthor(prev =>
+          prev
+            ? {
+                ...prev,
+                notes: prev.notes.map(note => (note.id === noteId ? updated : note))
+              }
+            : prev
+        );
+      }
+      setAccountError("");
+      return updated;
+    } catch (error) {
+      setAccountError(error.message || "Failed to update note");
+      throw error;
+    }
+  };
+
+  const handleFetchAuthor = async authorId => {
+    setIsLoadingAuthorNotes(true);
+    setAccountError("");
+    try {
+      const data = await api.fetchAuthorNotes(authorId);
+      setSelectedAuthor(data);
+    } catch (error) {
+      setAccountError(error.message || "Failed to load author notes");
+      setSelectedAuthor(null);
+    } finally {
+      setIsLoadingAuthorNotes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAccountOpen) {
+      setAuthError("");
+      setAccountError("");
+    }
+  }, [isAccountOpen]);
+
+  useEffect(() => {
+    if (!isAccountOpen || !authToken || accountTab !== "me") {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setIsLoadingMyNotes(true);
+      setAccountError("");
+      try {
+        const data = await api.fetchMyNotes();
+        if (!cancelled) {
+          setMyNotes(data.notes);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAccountError(error.message || "Failed to load notes");
+          setMyNotes([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingMyNotes(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAccountOpen, accountTab, authToken]);
+
+  useEffect(() => {
+    if (!isAccountOpen || accountTab !== "search") {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setIsLoadingAuthors(true);
+      setAccountError("");
+      try {
+        const data = await api.searchAuthors(userSearch);
+        if (!cancelled) {
+          setAuthorResults(data.authors);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setAccountError(error.message || "Failed to search users");
+          setAuthorResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingAuthors(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAccountOpen, accountTab, userSearch]);
+
   return (
     <div className="layout">
       <header className="app-header">
         <div className="branding">Bible Notes</div>
-        <div className="auth">
-          {authToken ? (
-            <div className="auth-row">
-              <button type="button" onClick={handleLogout}>Logout</button>
-            </div>
-          ) : (
-            <form className="auth-form" onSubmit={handleAuthSubmit}>
-              <select value={authMode} onChange={event => setAuthMode(event.target.value)}>
-                <option value="login">Login</option>
-                <option value="signup">Signup</option>
-              </select>
-              <input name="email" type="email" placeholder="Email" required />
-              <input name="password" type="password" placeholder="Password" required />
-              {authMode === "signup" ? (
-                <input name="displayName" type="text" placeholder="Display name" />
-              ) : null}
-              <button type="submit">Submit</button>
-            </form>
-          )}
-          {authError ? <div className="error-text">{authError}</div> : null}
-        </div>
       </header>
       <VersionSelector
         versions={versions}
@@ -316,7 +469,48 @@ function App() {
           setSelectedVerseId(null);
         }}
         loadingChapter={isLoadingChapter}
+        actions={
+          <button type="button" onClick={handleToggleAccount}>
+            Account
+          </button>
+        }
       />
+      {isAccountOpen ? (
+        <div className="account-panel">
+          {authToken ? (
+            <AccountPanel
+              onLogout={handleLogout}
+              error={accountError}
+              tab={accountTab}
+              onTabChange={handleAccountTabChange}
+              myNotes={myNotes}
+              isLoadingMyNotes={isLoadingMyNotes}
+              onUpdateNote={handleUpdateNote}
+              searchTerm={userSearch}
+              onSearchChange={setUserSearch}
+              authorResults={authorResults}
+              onSelectAuthor={handleFetchAuthor}
+              selectedAuthor={selectedAuthor}
+              isLoadingAuthors={isLoadingAuthors}
+              isLoadingAuthorNotes={isLoadingAuthorNotes}
+            />
+          ) : (
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              <select value={authMode} onChange={event => setAuthMode(event.target.value)}>
+                <option value="login">Login</option>
+                <option value="signup">Signup</option>
+              </select>
+              <input name="email" type="email" placeholder="Email" required />
+              <input name="password" type="password" placeholder="Password" required />
+              {authMode === "signup" ? (
+                <input name="displayName" type="text" placeholder="Display name" />
+              ) : null}
+              <button type="submit">Submit</button>
+            </form>
+          )}
+          {authToken ? null : authError ? <div className="error-text">{authError}</div> : null}
+        </div>
+      ) : null}
       <div className="panes">
         <NotesPane
           notes={notes}

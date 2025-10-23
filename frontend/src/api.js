@@ -28,7 +28,9 @@ async function request(path, options = {}) {
         message = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
       }
     } catch {}
-    throw new Error(message || "Request failed");
+    const error = new Error(message || "Request failed");
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -59,10 +61,21 @@ export const api = {
     if (params.chapter) {
       query.set("chapter", params.chapter);
     }
+    if (params.query) {
+      query.set("query", params.query);
+    }
     const suffix = query.toString() ? `?${query.toString()}` : "";
     return request(`/notes/authors/public${suffix}`);
   },
-  fetchSubscriptions() {
+  searchAuthors(query) {
+    const term = query?.trim();
+    const suffix = term ? `?query=${encodeURIComponent(term)}` : "";
+    return request(`/notes/authors/public${suffix}`);
+  },
+  fetchAuthorNotes(authorId) {
+    return request(`/notes/authors/${authorId}`);
+  },
+  fetchNoteSubscriptions() {
     return request("/notes/subscriptions");
   },
   subscribeAuthor(authorId) {
@@ -107,7 +120,7 @@ export const api = {
       body: JSON.stringify(payload)
     });
   },
-  fetchSubscriptions() {
+  fetchCommentarySubscriptions() {
     return request("/commentaries/subscriptions");
   },
   fetchPublicCommentaries(query) {
