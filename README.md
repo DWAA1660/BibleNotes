@@ -1,6 +1,6 @@
 # Bible Notes Web App
 
-A Python + React project providing a multi-version Bible reader with advanced notes, backlinks, and community commentaries. The backend uses FastAPI with SQLite, while the frontend is a minimal React single-page interface.
+A Python + React project providing a multi-version Bible reader with advanced notes, backlinks, community commentaries, and synchronized original-language manuscripts. The backend uses FastAPI with SQLite, and the frontend is a Vite + React single-page app.
 
 ## Project Structure
 
@@ -37,9 +37,10 @@ A Python + React project providing a multi-version Bible reader with advanced no
 │       ├── api.js
 │       └── components/
 │           ├── Layout.css
-│           ├── BiblePane.jsx
-│           ├── CommentaryPane.jsx
-│           ├── NotesPane.jsx
+│           ├── BiblePane.jsx            # Left pane: Bible text, word/verse selection
+│           ├── ManuscriptsPane.jsx      # Right pane tab: manuscripts; aligned row-by-row with Bible
+│           ├── CommentaryPane.jsx       # Right pane tab: commentaries
+│           ├── NotesPane.jsx            # Left pane column: notes and backlinks
 │           └── VersionSelector.jsx
 ├── bibles/
 │   └── ... (existing Bible JSON assets)
@@ -177,8 +178,17 @@ Notes:
 ## Frontend Overview
 
 - **Stack**: Vite + React + Fetch API
-- **Layout**: Three resizable panes (CSS grid)
-- **State Management**: React hooks + simple context for auth token
+- **Layout**: Three-pane UI (Notes • Bible • Right Tabs)
+- **Right Tabs**: Commentaries, Manuscripts, Concordance
+- **State**: React hooks + localStorage for lightweight persistence
+
+### Bible ⇄ Manuscripts alignment (Manuscripts tab)
+
+- Each pane measures the natural height of every verse box and shares a per-verse height map.
+- Per-verse minHeight is set to the max of both pane measurements so rows match in height.
+- Panes report a measured top offset; the Bible pane applies a small spacer to align the first rows.
+- ResizeObserver re-measures when header text wraps or the window resizes to keep alignment stable.
+- Emissions are debounced with 1px hysteresis to prevent jitter and cumulative drift.
 
 ### Local Development
 
@@ -233,3 +243,11 @@ pytest
 - Add OpenAPI tags/examples + client codegen configs
 - Integrate full-text search via PostgreSQL FTS or external search service
 - Expand React app with routing, user profile management, and offline caching
+
+## Coding Guidelines (Frontend)
+
+- Comments are encouraged where nontrivial logic exists (especially cross-pane sync and measurements).
+- Prefer small, pure helper functions and `useEffect` blocks with clear responsibilities.
+- Use ResizeObserver for UI-dependent measurements (wrapping, font changes).
+- Avoid magic numbers; if needed (e.g., 1px hysteresis), document why.
+- Keep CSS for matching components (Bible verse and Manuscript entry boxes) visually identical to ensure min-height parity results in pixel-exact alignment.

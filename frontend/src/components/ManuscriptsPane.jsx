@@ -194,9 +194,17 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
   const [selectedVerseNo, setSelectedVerseNo] = useState(null);
 
   // Measure manuscript verse heights and broadcast to Bible pane
+  // Goal: keep manuscript and bible rows the same height and aligned from the top
+  // - We measure each verse card's natural height (without minHeight)
+  // - We compute our base top offset relative to the scroll container
+  // - We report our effective top (base + any margin) so Bible can compute its spacer
   useEffect(() => {
-    if (activeTab !== "manuscripts") return;
+    if (activeTab !== "manuscripts") {
+      if (extraTopMargin !== 0) setExtraTopMargin(0);
+      return undefined;
+    }
     function measureAndEmit() {
+      // Re-measure all verse cards and our top offset
       const root = listRef.current;
       const container = contentRef.current;
       if (!root || !container) return;
@@ -210,10 +218,13 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
         if (prevMinHeight) el.style.minHeight = prevMinHeight;
         if (v) heights[v] = rect;
       }
-      const topOffset = Math.max(0, root.getBoundingClientRect().top - container.getBoundingClientRect().top);
-      setMsTopOffset(topOffset);
+      // Base offset excludes any extra margin we apply for alignment
+      const rawTopOffset = Math.max(0, root.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      const baseTopOffset = Math.max(0, rawTopOffset - extraTopMargin);
+      setMsTopOffset(baseTopOffset);
       msHeightsRef.current = heights;
-      window.dispatchEvent(new CustomEvent('manuscripts-verse-heights', { detail: { book, chapter, heights, topOffset } }));
+      // Report our own effective top so Bible can compute spacer = msBase - myBase
+      window.dispatchEvent(new CustomEvent('manuscripts-verse-heights', { detail: { book, chapter, heights, topOffset: baseTopOffset + extraTopMargin } }));
     }
     const rAF = () => requestAnimationFrame(() => {
       measureAndEmit();
@@ -221,10 +232,27 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
     });
     rAF();
     window.addEventListener('resize', rAF);
-    return () => window.removeEventListener('resize', rAF);
-  }, [activeTab, book, chapter, verses, selectedEdition]);
+    // Observe content/list resizes (e.g., text wrapping, fonts)
+    let ro;
+    try {
+      const targetA = contentRef.current;
+      const targetB = listRef.current;
+      if (window.ResizeObserver && (targetA || targetB)) {
+        ro = new ResizeObserver(() => rAF());
+        if (targetA) ro.observe(targetA);
+        if (targetB) ro.observe(targetB);
+      }
+    } catch {}
+    return () => {
+      window.removeEventListener('resize', rAF);
+      try { if (ro) ro.disconnect(); } catch {}
+    };
+  }, [activeTab, book, chapter, verses, selectedEdition, extraTopMargin]);
 
   // Listen for Bible heights to equalize both panes and align top when Bible has larger header
+  // - We set minHeight on each manuscript verse to max(msHeight, bibleHeight)
+  // - We compute the necessary extra top margin so our effective top matches Bible's base top
+  // - We re-emit heights with our effective top so Bible can maintain symmetry
   useEffect(() => {
     function onBibleHeights(e) {
       const d = e.detail || {};
@@ -242,16 +270,26 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
         el.style.minHeight = h ? `${Math.ceil(h)}px` : '';
         if (v) equalHeights[v] = Math.ceil(h);
       }
-      const diff = Math.max(0, (Number(d.topOffset) || 0) - msTopOffset);
-      setExtraTopMargin(diff);
+      // Desired effective top is what Bible measured as its base top
+      const rawTarget = Number(d.topOffset);
+      const targetOffset = Number.isFinite(rawTarget) ? Math.max(0, rawTarget) : 0;
+      // Hysteresis: round and only update when change is > 1px to avoid drift/jitter
+      const desiredMargin = Math.max(0, Math.round(targetOffset - msTopOffset));
+      const diff = Math.abs(desiredMargin - extraTopMargin);
+      const marginChanged = diff > 1; // require >1px change to avoid drift
+      if (marginChanged) {
+        setExtraTopMargin(desiredMargin);
+      }
+      const appliedMargin = marginChanged ? desiredMargin : extraTopMargin;
       // Re-dispatch equalized heights so Bible applies the exact same values
       try {
-        window.dispatchEvent(new CustomEvent('manuscripts-verse-heights', { detail: { book, chapter, heights: equalHeights, topOffset: msTopOffset + diff } }));
+        // Re-emit with our own effective top so Bible can align to it
+        window.dispatchEvent(new CustomEvent('manuscripts-verse-heights', { detail: { book, chapter, heights: equalHeights, topOffset: msTopOffset + appliedMargin } }));
       } catch {}
     }
     window.addEventListener('bible-verse-heights', onBibleHeights);
     return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
-  }, [book, chapter, msTopOffset]);
+  }, [book, chapter, msTopOffset, extraTopMargin]);
 
   // Highlight the manuscript verse when a Bible verse is selected
   useEffect(() => {

@@ -41,8 +41,16 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
   const contentRef = useRef(null);
   const listRef = useRef(null);
   const [topSpacerHeight, setTopSpacerHeight] = useState(0);
+  const baseTopOffsetRef = useRef(0);
+  const lastBroadcastRef = useRef({ top: -1, hash: "" });
+  const stabilizingRef = useRef(false);
+  const pendingSpacerRef = useRef(null);
  
 
+  // Measure Bible verse heights and broadcast to Manuscripts for equalization
+  // - We measure each verse div's natural height (without minHeight)
+  // - We compute our base top offset relative to the scroll container
+  // - We emit heights and baseTop so Manuscripts can align via a top spacer
   useEffect(() => {
     function onSync(e) {
       if (activeTab !== "manuscripts") return;
@@ -61,6 +69,23 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     return () => window.removeEventListener("manuscripts-scroll-verse", onSync);
   }, [activeTab, chapterData]);
 
+  // Stabilize on chapter/book switch while both panes measure and exchange
+  useEffect(() => {
+    if (activeTab !== 'manuscripts' || !chapterData) return;
+    stabilizingRef.current = true;
+    pendingSpacerRef.current = null;
+    lastBroadcastRef.current = { top: -1, hash: "" };
+    const t = setTimeout(() => {
+      stabilizingRef.current = false;
+      if (pendingSpacerRef.current != null) {
+        const desired = pendingSpacerRef.current;
+        setTopSpacerHeight(prev => (Math.abs(prev - desired) > 1 ? desired : prev));
+      }
+      pendingSpacerRef.current = null;
+    }, 250);
+    return () => clearTimeout(t);
+  }, [activeTab, chapterData?.book, chapterData?.chapter]);
+
   // Measure Bible verse heights and broadcast to Manuscripts for equalization
   useEffect(() => {
     if (activeTab !== 'manuscripts') return;
@@ -78,16 +103,27 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
         if (prevMinHeight) el.style.minHeight = prevMinHeight;
         if (v) heights[v] = rect;
       }
-      const topOffset = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
-      try {
-        window.dispatchEvent(new CustomEvent('bible-verse-heights', { detail: { book: chapterData.book, chapter: chapterData.chapter, heights, topOffset } }));
-      } catch {}
+      // Base offset excludes any spacer we apply for alignment
+      const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      const baseTop = Math.max(0, rawTop - topSpacerHeight);
+      baseTopOffsetRef.current = baseTop;
+      // Emit only if changed enough to matter
+      const heightsKey = Object.keys(heights).sort().map(k => `${k}:${Math.round(heights[k])}`).join('|');
+      const last = lastBroadcastRef.current;
+      const topChanged = Math.abs((last.top ?? -1) - baseTop) > 1;
+      const heightsChanged = heightsKey !== last.hash;
+      if (topChanged || heightsChanged) {
+        lastBroadcastRef.current = { top: baseTop, hash: heightsKey };
+        try {
+          window.dispatchEvent(new CustomEvent('bible-verse-heights', { detail: { book: chapterData.book, chapter: chapterData.chapter, heights, topOffset: baseTop } }));
+        } catch {}
+      }
     }
     const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
     rAF();
     window.addEventListener('resize', rAF);
     return () => window.removeEventListener('resize', rAF);
-  }, [activeTab, chapterData, selectedVerseId]);
+  }, [activeTab, chapterData, selectedVerseId, topSpacerHeight]);
 
   useEffect(() => {
     function onGoto(e) {
@@ -131,13 +167,24 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       }
     }
 
+    // Apply min-heights from Manuscripts pane to align rows vertically
     function onHeights(e) {
       const d = e.detail || {};
       if (!chapterData) return;
       if (d.book !== chapterData.book || d.chapter !== chapterData.chapter) return;
       applyHeights(d.heights || {});
-      const offset = Number(d.topOffset) || 0;
-      setTopSpacerHeight(activeTab === 'manuscripts' ? Math.max(0, Math.ceil(offset)) : 0);
+      // Compute the spacer we need so our effective top matches Manuscripts' base top
+      const msBase = Number(d.topOffset) || 0;
+      const myBase = baseTopOffsetRef.current || 0;
+      const desired = Math.max(0, Math.ceil(msBase - myBase));
+      if (stabilizingRef.current) {
+        pendingSpacerRef.current = desired;
+        return;
+      }
+      setTopSpacerHeight(prev => {
+        if (activeTab !== 'manuscripts') return 0;
+        return Math.abs(prev - desired) > 1 ? desired : prev;
+      });
     }
 
     window.addEventListener('manuscripts-verse-heights', onHeights);

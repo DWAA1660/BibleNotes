@@ -256,10 +256,12 @@ body {
 }
 
 .verse-item {
-  padding: 0.5rem;
-  border-radius: 0.35rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  box-sizing: border-box;
 }
 
 .verse-item:hover {
@@ -432,6 +434,7 @@ body {
   border-radius: 0.5rem;
   padding: 0.75rem;
   background: #fff;
+  box-sizing: border-box;
 }
 
 .entry-card.active {
