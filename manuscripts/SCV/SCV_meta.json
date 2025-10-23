@@ -1,0 +1,9 @@
+{
+  "name": "Scrivener 1894 Textus Receptus (text-only)",
+  "language": "grc",
+  "scope": "NT",
+  "license_name": "Public Domain",
+  "license_url": "https://github.com/byztxt/greektext-scrivener#readme",
+  "source_url": "https://github.com/byztxt/greektext-scrivener",
+  "description": "Text-only Scrivener TR 1894."
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Westcott–Hort Greek New Testament (text-only)",
+  "language": "grc",
+  "scope": "NT",
+  "license_name": "Public Domain",
+  "license_url": "https://github.com/byztxt/greektext-westcott-hort#readme",
+  "source_url": "https://github.com/byztxt/greektext-westcott-hort",
+  "description": "Text-only Westcott–Hort with no punctuation/accents."
+}
