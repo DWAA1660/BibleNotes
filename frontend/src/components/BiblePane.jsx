@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, selectionMode, onSelectionModeChange, activeTab }) {
   const stripTags = html => html.replace(/<[^>]+>/g, " ");
@@ -40,6 +40,8 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
   };
   const contentRef = useRef(null);
   const listRef = useRef(null);
+  const [topSpacerHeight, setTopSpacerHeight] = useState(0);
+ 
 
   useEffect(() => {
     function onSync(e) {
@@ -59,6 +61,34 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     return () => window.removeEventListener("manuscripts-scroll-verse", onSync);
   }, [activeTab, chapterData]);
 
+  // Measure Bible verse heights and broadcast to Manuscripts for equalization
+  useEffect(() => {
+    if (activeTab !== 'manuscripts') return;
+    function measureAndEmit() {
+      const list = listRef.current;
+      const container = contentRef.current;
+      if (!list || !container || !chapterData) return;
+      const items = Array.from(list.querySelectorAll('[data-verse]'));
+      const heights = {};
+      for (const el of items) {
+        const v = Number(el.getAttribute('data-verse'));
+        const prevMinHeight = el.style.minHeight;
+        if (prevMinHeight) el.style.minHeight = '';
+        const rect = el.getBoundingClientRect().height;
+        if (prevMinHeight) el.style.minHeight = prevMinHeight;
+        if (v) heights[v] = rect;
+      }
+      const topOffset = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      try {
+        window.dispatchEvent(new CustomEvent('bible-verse-heights', { detail: { book: chapterData.book, chapter: chapterData.chapter, heights, topOffset } }));
+      } catch {}
+    }
+    const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
+    rAF();
+    window.addEventListener('resize', rAF);
+    return () => window.removeEventListener('resize', rAF);
+  }, [activeTab, chapterData, selectedVerseId]);
+
   useEffect(() => {
     function onGoto(e) {
       const d = e.detail || {};
@@ -75,11 +105,53 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
           num.classList.add('flash');
           setTimeout(() => num.classList.remove('flash'), 1200);
         }
+        try {
+          window.dispatchEvent(new CustomEvent("bible-verse-selected", { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: d.verse } }));
+        } catch {}
       }
     }
     window.addEventListener("goto-verse", onGoto);
     return () => window.removeEventListener("goto-verse", onGoto);
   }, [chapterData]);
+
+  // Apply min-heights from Manuscripts pane to align rows vertically
+  useEffect(() => {
+    function applyHeights(map) {
+      const list = listRef.current;
+      if (!list) return;
+      const items = Array.from(list.querySelectorAll('[data-verse]'));
+      for (const el of items) {
+        const v = Number(el.getAttribute('data-verse'));
+        const h = map[v];
+        if (activeTab === 'manuscripts' && h) {
+          el.style.minHeight = `${Math.ceil(h)}px`;
+        } else {
+          el.style.minHeight = '';
+        }
+      }
+    }
+
+    function onHeights(e) {
+      const d = e.detail || {};
+      if (!chapterData) return;
+      if (d.book !== chapterData.book || d.chapter !== chapterData.chapter) return;
+      applyHeights(d.heights || {});
+      const offset = Number(d.topOffset) || 0;
+      setTopSpacerHeight(activeTab === 'manuscripts' ? Math.max(0, Math.ceil(offset)) : 0);
+    }
+
+    window.addEventListener('manuscripts-verse-heights', onHeights);
+    // Clear heights when switching away from manuscripts tab or changing chapter
+    return () => {
+      window.removeEventListener('manuscripts-verse-heights', onHeights);
+      const list = listRef.current;
+      if (list) {
+        const items = Array.from(list.querySelectorAll('[data-verse]'));
+        for (const el of items) el.style.minHeight = '';
+      }
+      setTopSpacerHeight(0);
+    };
+  }, [activeTab, chapterData]);
 
   return (
     <div className="pane">
@@ -108,13 +180,18 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
         ) : !chapterData ? (
           <div className="empty-state">Select a version, book, and chapter to begin.</div>
         ) : (
-          <div className="verse-list" ref={listRef}>
+          <div className="verse-list" ref={listRef} style={{ marginTop: activeTab === 'manuscripts' ? `${topSpacerHeight}px` : undefined }}>
             {chapterData.verses.map(verse => (
               <div
                 key={verse.id}
                 className={`verse-item${verse.id === selectedVerseId ? " active" : ""}`}
                 data-verse={verse.verse}
-                onClick={() => onSelectVerse(verse.id)}
+                onClick={() => {
+                  onSelectVerse(verse.id);
+                  try {
+                    window.dispatchEvent(new CustomEvent("bible-verse-selected", { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: verse.verse } }));
+                  } catch {}
+                }}
               >
                 <div>
                   <span className="verse-number">{verse.verse}</span>

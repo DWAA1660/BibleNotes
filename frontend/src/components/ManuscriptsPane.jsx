@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { api } from "../api";
 
@@ -186,6 +186,85 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
     saveOverrides(next);
   };
 
+  const listRef = useRef(null);
+  const contentRef = useRef(null);
+  const [msTopOffset, setMsTopOffset] = useState(0);
+  const [extraTopMargin, setExtraTopMargin] = useState(0);
+  const msHeightsRef = useRef({});
+  const [selectedVerseNo, setSelectedVerseNo] = useState(null);
+
+  // Measure manuscript verse heights and broadcast to Bible pane
+  useEffect(() => {
+    if (activeTab !== "manuscripts") return;
+    function measureAndEmit() {
+      const root = listRef.current;
+      const container = contentRef.current;
+      if (!root || !container) return;
+      const cards = Array.from(root.querySelectorAll('[data-ms-verse]'));
+      const heights = {};
+      for (const el of cards) {
+        const v = Number(el.getAttribute('data-ms-verse'));
+        const prevMinHeight = el.style.minHeight;
+        if (prevMinHeight) el.style.minHeight = '';
+        const rect = el.getBoundingClientRect().height;
+        if (prevMinHeight) el.style.minHeight = prevMinHeight;
+        if (v) heights[v] = rect;
+      }
+      const topOffset = Math.max(0, root.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      setMsTopOffset(topOffset);
+      msHeightsRef.current = heights;
+      window.dispatchEvent(new CustomEvent('manuscripts-verse-heights', { detail: { book, chapter, heights, topOffset } }));
+    }
+    const rAF = () => requestAnimationFrame(() => {
+      measureAndEmit();
+      setTimeout(measureAndEmit, 0);
+    });
+    rAF();
+    window.addEventListener('resize', rAF);
+    return () => window.removeEventListener('resize', rAF);
+  }, [activeTab, book, chapter, verses, selectedEdition]);
+
+  // Listen for Bible heights to equalize both panes and align top when Bible has larger header
+  useEffect(() => {
+    function onBibleHeights(e) {
+      const d = e.detail || {};
+      if (d.book !== book || d.chapter !== chapter) return;
+      const list = listRef.current;
+      if (!list) return;
+      const items = Array.from(list.querySelectorAll('[data-ms-verse]'));
+      const map = d.heights || {};
+      const equalHeights = {};
+      for (const el of items) {
+        const v = Number(el.getAttribute('data-ms-verse'));
+        const msH = msHeightsRef.current[v] || el.getBoundingClientRect().height;
+        const biH = map[v] || 0;
+        const h = Math.max(msH, biH);
+        el.style.minHeight = h ? `${Math.ceil(h)}px` : '';
+        if (v) equalHeights[v] = Math.ceil(h);
+      }
+      const diff = Math.max(0, (Number(d.topOffset) || 0) - msTopOffset);
+      setExtraTopMargin(diff);
+      // Re-dispatch equalized heights so Bible applies the exact same values
+      try {
+        window.dispatchEvent(new CustomEvent('manuscripts-verse-heights', { detail: { book, chapter, heights: equalHeights, topOffset: msTopOffset + diff } }));
+      } catch {}
+    }
+    window.addEventListener('bible-verse-heights', onBibleHeights);
+    return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
+  }, [book, chapter, msTopOffset]);
+
+  // Highlight the manuscript verse when a Bible verse is selected
+  useEffect(() => {
+    function onBibleSelect(e) {
+      const d = e.detail || {};
+      if (d.book === book && d.chapter === chapter) {
+        setSelectedVerseNo(d.verse);
+      }
+    }
+    window.addEventListener('bible-verse-selected', onBibleSelect);
+    return () => window.removeEventListener('bible-verse-selected', onBibleSelect);
+  }, [book, chapter]);
+
   return (
     <div className="pane">
       <div className="pane-header tabs-header">
@@ -215,7 +294,7 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
         <div style={{ marginLeft: "auto" }}>
         </div>
       </div>
-      <div className="pane-content">
+      <div className="pane-content" ref={contentRef}>
         <div className="commentary-section">
           <div className="section-title">Select Edition</div>
           {available.length ? (
@@ -258,10 +337,11 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
           ) : verses.length ? (
             <div
               className="entries-list"
-              style={{ direction: (editionMeta?.language === "heb" || editionMeta?.language === "arc" || editionMeta?.language === "syr") ? "rtl" : "ltr", textAlign: (editionMeta?.language === "heb" || editionMeta?.language === "arc" || editionMeta?.language === "syr") ? "right" : "left" }}
+              ref={listRef}
+              style={{ direction: (editionMeta?.language === "heb" || editionMeta?.language === "arc" || editionMeta?.language === "syr") ? "rtl" : "ltr", textAlign: (editionMeta?.language === "heb" || editionMeta?.language === "arc" || editionMeta?.language === "syr") ? "right" : "left", marginTop: extraTopMargin ? `${extraTopMargin}px` : undefined }}
             >
               {verses.map(v => (
-                <div key={v.id} className="entry-card">
+                <div key={v.id} className={`entry-card${selectedVerseNo === v.verse ? ' active' : ''}`} data-ms-verse={v.verse}>
                   <div className="note-meta">{v.chapter}:{v.verse}</div>
                   <div>
                     <span>{v.text}</span>

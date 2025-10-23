@@ -5,6 +5,7 @@ import html
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
+from sqlalchemy import or_
 
 from ..dependencies import get_db, get_optional_user
 from ..models import BibleVersion, Note, NoteCrossReference, User, Verse
@@ -39,15 +40,48 @@ def read_chapter(
     if not version:
         raise HTTPException(status_code=404, detail="Bible version not found")
 
+    # Support simple book-name aliases (e.g., Psalms vs Psalm)
+    aliases: dict[str, list[str]] = {
+        "Psalms": ["Psalm"],
+        "Psalm": ["Psalms"],
+        # Song of Solomon aliases
+        "Song of Solomon": ["Song of Songs", "Canticles", "Song", "Songs"],
+        "Song of Songs": ["Song of Solomon", "Canticles", "Song", "Songs"],
+        "Canticles": ["Song of Solomon", "Song of Songs", "Song", "Songs"],
+        "Song": ["Songs", "Song of Solomon", "Song of Songs", "Canticles"],
+        "Songs": ["Song", "Song of Solomon", "Song of Songs", "Canticles"],
+    }
+
+    candidates = [book]
+    candidates.extend(aliases.get(book, []))
+
     verses = session.exec(
         select(Verse)
         .where(
             Verse.version_code == version_code,
-            Verse.book == book,
+            Verse.book.in_(candidates),
             Verse.chapter == chapter,
         )
         .order_by(Verse.verse)
     ).all()
+
+    if not verses:
+        # Fallback: normalize book names (strip non-alphanumerics, lowercase) and compare
+        def _norm(s: str) -> str:
+            raw = "".join(ch for ch in (s or "").lower() if ch.isalnum())
+            # drop a leading 'the'
+            return raw[3:] if raw.startswith("the") else raw
+
+        norm_targets = {_norm(b) for b in candidates}
+        rows = session.exec(
+            select(Verse)
+            .where(
+                Verse.version_code == version_code,
+                Verse.chapter == chapter,
+            )
+            .order_by(Verse.verse)
+        ).all()
+        verses = [v for v in rows if _norm(v.book) in norm_targets]
 
     if not verses:
         raise HTTPException(status_code=404, detail="Chapter not found")

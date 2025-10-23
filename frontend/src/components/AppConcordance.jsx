@@ -31,7 +31,7 @@ function AppConcordance({ version, initialQuery, onRefClick, activeTab, onChange
     setIsLoading(true);
     setError("");
     try {
-      const data = await api.fetchConcordance(version, term, { limit: 10000, offset: 0 });
+      const data = await api.fetchConcordance(version, term, { limit: 1000000, offset: 0 });
       setResults(data);
       setBook("");
     } catch (e) {
