@@ -108,6 +108,72 @@ python3 -m backend.app.database --init
 python3 backend/seeds/seed_bible.py --db backend/bible_notes.db --version ESV
 ```
 
+## Production Seeding (Original-Language Manuscripts)
+
+This project includes original-language manuscript editions (e.g., Greek WH/SCV, Hebrew OSHB) stored as JSON under `manuscripts/`.
+
+Use `backend/seeds/seed_manuscripts.py` to import the already-downloaded assets into the production SQLite database. No network access is required for seeding if `manuscripts/` is present on the server.
+
+Prerequisites:
+
+- Python 3.10+
+- Virtual environment with project dependencies installed:
+
+```bash
+# Linux/macOS
+python3 -m venv venv
+. venv/bin/activate
+pip install -r backend/requirements.txt
+
+# Windows (PowerShell)
+python -m venv venv
+./venv/Scripts/Activate.ps1
+pip install -r backend/requirements.txt
+```
+
+Seed all available manuscript editions (recommended):
+
+```bash
+# Linux/macOS
+python3 backend/seeds/seed_manuscripts.py --db backend/bible_notes.db --all --force --verbose
+
+# Windows (PowerShell)
+./venv/Scripts/python.exe backend/seeds/seed_manuscripts.py --db backend/bible_notes.db --all --force --verbose
+```
+
+Seed a specific edition (examples):
+
+```bash
+# OSHB (Hebrew OT)
+python3 backend/seeds/seed_manuscripts.py --db backend/bible_notes.db --edition OSHB --force --verbose
+
+# WH (Westcott–Hort Greek NT)
+python3 backend/seeds/seed_manuscripts.py --db backend/bible_notes.db --edition WH --force --verbose
+
+# SCV (Scrivener 1894 TR Greek NT)
+python3 backend/seeds/seed_manuscripts.py --db backend/bible_notes.db --edition SCV --force --verbose
+```
+
+If your `manuscripts/` directory is located elsewhere, override with `--assets-dir`:
+
+```bash
+python3 backend/seeds/seed_manuscripts.py --db /srv/app/bible_notes.db \
+  --all --force --verbose --assets-dir /srv/app/manuscripts
+```
+
+After seeding, verify via API (with the backend running):
+
+```bash
+curl http://127.0.0.1:8000/manuscripts/available/Genesis/1     # should list OSHB for OT
+curl http://127.0.0.1:8000/manuscripts/available/John/1        # should list WH/SCV for NT
+curl http://127.0.0.1:8000/manuscripts/OSHB/Genesis/1          # returns Hebrew text for Gen 1
+```
+
+Notes:
+
+- Seeding normalizes book names to the app’s canonical labels (e.g., `1 Corinthians`, `Genesis`), so lookups match UI selections.
+- `--force` overwrites existing verses for the selected edition(s); omit to skip re-seeding if already present.
+
 ## Frontend Overview
 
 - **Stack**: Vite + React + Fetch API

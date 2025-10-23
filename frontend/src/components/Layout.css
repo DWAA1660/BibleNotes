@@ -195,6 +195,35 @@ body {
   font-weight: 600;
 }
 
+.tabs-header {
+  padding: 0;
+}
+
+.tabbar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem 0.25rem 0 0.25rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tabbar .tab {
+  position: relative;
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  background: #f3f4f6;
+  padding: 0.5rem 0.75rem;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  cursor: pointer;
+  color: #374151;
+}
+
+.tabbar .tab.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 -1px 0 #e5e7eb;
+}
+
 .pane-content {
   padding: 0.75rem 1rem;
   overflow-y: auto;

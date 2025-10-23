@@ -175,3 +175,40 @@ class UserCommentarySubscription(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "[UserCommentarySubscription.user_id]"},
     )
     commentary: Commentary = Relationship(back_populates="subscriptions")
+
+class ManuscriptEdition(SQLModel, table=True):
+    code: str = Field(primary_key=True)
+    name: str
+    language: str
+    scope: str
+    license_name: Optional[str] = None
+    license_url: Optional[str] = None
+    source_url: Optional[str] = None
+    description: Optional[str] = None
+
+    verses: list["ManuscriptVerse"] = Relationship(
+        back_populates="edition", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    book_coverage: list["ManuscriptBookCoverage"] = Relationship(
+        back_populates="edition", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+
+class ManuscriptVerse(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    edition_code: str = Field(foreign_key="manuscriptedition.code")
+    book: str = Field(index=True)
+    chapter: int = Field(index=True)
+    verse: int = Field(index=True)
+    canonical_id: str = Field(index=True)
+    text: str
+
+    edition: ManuscriptEdition = Relationship(back_populates="verses")
+
+
+class ManuscriptBookCoverage(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    edition_code: str = Field(foreign_key="manuscriptedition.code")
+    book: str = Field(index=True)
+
+    edition: ManuscriptEdition = Relationship(back_populates="book_coverage")

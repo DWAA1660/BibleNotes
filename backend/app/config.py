@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(120, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     bible_assets_path: Path = Field(Path("bibles"), env="BIBLE_ASSETS_PATH")
+    manuscript_assets_path: Path = Field(Path("manuscripts"), env="MANUSCRIPT_ASSETS_PATH")
     rate_limit_notes_per_minute: Optional[int] = Field(10, env="RATE_LIMIT_NOTES_PER_MINUTE")
 
     class Config:

@@ -248,3 +248,41 @@ class UserSearchResult(BaseModel):
 
 class UserListResponse(BaseModel):
     users: List[UserSearchResult]
+
+
+class ManuscriptEditionRead(BaseModel):
+    code: str
+    name: str
+    language: str
+    scope: str
+    license_name: Optional[str] = None
+    license_url: Optional[str] = None
+    source_url: Optional[str] = None
+    description: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class ManuscriptVerseRead(BaseModel):
+    id: int
+    edition_code: str
+    book: str
+    chapter: int
+    verse: int
+    canonical_id: str
+    text: str
+
+    class Config:
+        orm_mode = True
+
+
+class ManuscriptChapterResponse(BaseModel):
+    edition: ManuscriptEditionRead
+    book: str
+    chapter: int
+    verses: List[ManuscriptVerseRead]
+
+
+class ManuscriptEditionListResponse(BaseModel):
+    editions: List[ManuscriptEditionRead]

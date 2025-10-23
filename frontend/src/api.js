@@ -165,5 +165,21 @@ export const api = {
     const term = query?.trim();
     const suffix = term ? `?query=${encodeURIComponent(term)}` : "";
     return request(`/users/search${suffix}`);
+  },
+  fetchManuscriptEditions(params = {}) {
+    const query = new URLSearchParams();
+    if (params.language) query.set("language", params.language);
+    if (params.scope) query.set("scope", params.scope);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request(`/manuscripts/editions${suffix}`);
+  },
+  fetchManuscriptsAvailable(book, chapter, params = {}) {
+    const query = new URLSearchParams();
+    if (params.language) query.set("language", params.language);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request(`/manuscripts/available/${encodeURIComponent(book)}/${chapter}${suffix}`);
+  },
+  fetchManuscriptChapter(edition, book, chapter) {
+    return request(`/manuscripts/${encodeURIComponent(edition)}/${encodeURIComponent(book)}/${chapter}`);
   }
 };

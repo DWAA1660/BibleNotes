@@ -5,6 +5,7 @@ import VersionSelector from "./components/VersionSelector.jsx";
 import BiblePane from "./components/BiblePane.jsx";
 import NotesPane from "./components/NotesPane.jsx";
 import CommentaryPane from "./components/CommentaryPane.jsx";
+import ManuscriptsPane from "./components/ManuscriptsPane.jsx";
 import SearchPage from "./components/SearchPage.jsx";
 import UserProfilePage from "./components/UserProfilePage.jsx";
 import ProfilePage from "./components/ProfilePage.jsx";
@@ -113,10 +114,19 @@ function App() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [rightPaneTab, setRightPaneTab] = useState(() => localStorage.getItem("rightPaneTab") || "commentaries");
 
   useEffect(() => {
     setToken(authToken);
   }, [authToken]);
+
+  useEffect(() => {
+    if (rightPaneTab) {
+      localStorage.setItem("rightPaneTab", rightPaneTab);
+    } else {
+      localStorage.removeItem("rightPaneTab");
+    }
+  }, [rightPaneTab]);
 
   useEffect(() => {
     async function loadVersions() {
@@ -491,6 +501,7 @@ function App() {
           <h2>Profile</h2>
         </div>
       )}
+      {location.pathname === "/" ? null : null}
       <main className="main-content">
         <Routes>
           <Route
@@ -527,14 +538,25 @@ function App() {
                   onSelectVerse={setSelectedVerseId}
                   isLoading={isLoadingChapter}
                 />
-                <CommentaryPane
-                  isAuthenticated={Boolean(authToken)}
-                  authors={authorSubscriptions}
-                  selectedAuthorId={selectedAuthorId}
-                  onSelectAuthor={handleSelectAuthor}
-                  authorNotes={authorNotes}
-                  isLoading={isLoadingCommentaries}
-                />
+                {rightPaneTab === "commentaries" ? (
+                  <CommentaryPane
+                    activeTab={rightPaneTab}
+                    onChangeTab={setRightPaneTab}
+                    isAuthenticated={Boolean(authToken)}
+                    authors={authorSubscriptions}
+                    selectedAuthorId={selectedAuthorId}
+                    onSelectAuthor={handleSelectAuthor}
+                    authorNotes={authorNotes}
+                    isLoading={isLoadingCommentaries}
+                  />
+                ) : (
+                  <ManuscriptsPane
+                    book={selectedBook}
+                    chapter={selectedChapter}
+                    activeTab={rightPaneTab}
+                    onChangeTab={setRightPaneTab}
+                  />
+                )}
               </div>
             }
           />

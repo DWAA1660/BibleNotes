@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import init_db
-from .routers import auth, bible, commentaries, notes, users
+from .routers import auth, bible, commentaries, notes, users, manuscripts
 
 settings = get_settings()
 
@@ -29,3 +29,4 @@ app.include_router(bible.router)
 app.include_router(commentaries.router)
 app.include_router(notes.router)
 app.include_router(users.router)
+app.include_router(manuscripts.router)

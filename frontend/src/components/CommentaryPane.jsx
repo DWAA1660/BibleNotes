@@ -9,6 +9,8 @@ function formatReference(note) {
 }
 
 function CommentaryPane({
+  activeTab,
+  onChangeTab,
   isAuthenticated,
   authors,
   selectedAuthorId,
@@ -18,7 +20,24 @@ function CommentaryPane({
 }) {
   return (
     <div className="pane">
-      <div className="pane-header">Commentaries</div>
+      <div className="pane-header tabs-header">
+        <div className="tabbar">
+          <button
+            type="button"
+            className={`tab ${activeTab === "commentaries" ? "active" : ""}`}
+            onClick={() => onChangeTab("commentaries")}
+          >
+            Commentaries
+          </button>
+          <button
+            type="button"
+            className={`tab ${activeTab === "manuscripts" ? "active" : ""}`}
+            onClick={() => onChangeTab("manuscripts")}
+          >
+            Manuscripts
+          </button>
+        </div>
+      </div>
       <div className="pane-content">
         <div className="commentary-section">
           <div className="section-title">My Subscriptions</div>
@@ -74,6 +93,8 @@ function CommentaryPane({
 }
 
 CommentaryPane.propTypes = {
+  activeTab: PropTypes.string,
+  onChangeTab: PropTypes.func,
   isAuthenticated: PropTypes.bool,
   authors: PropTypes.arrayOf(
     PropTypes.shape({
@@ -88,6 +109,8 @@ CommentaryPane.propTypes = {
 };
 
 CommentaryPane.defaultProps = {
+  activeTab: "commentaries",
+  onChangeTab: () => {},
   isAuthenticated: false,
   selectedAuthorId: null,
   isLoading: false
