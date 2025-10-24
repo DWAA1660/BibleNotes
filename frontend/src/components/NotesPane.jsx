@@ -314,6 +314,7 @@ function NotesPane({
                     {note.cross_references.length ? (
                       <div className="note-meta">References: {note.cross_references.join(", ")}</div>
                     ) : null}
+                    <br></br>
                     {Array.isArray(note.tags) && note.tags.length ? (
                       <div className="note-meta">Tags: {note.tags.join(", ")}</div>
                     ) : null}

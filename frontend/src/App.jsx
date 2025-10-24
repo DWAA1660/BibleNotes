@@ -144,6 +144,43 @@ function App() {
   const [backlinks, setBacklinks] = useState([]);
   const [isLoadingBacklinks, setIsLoadingBacklinks] = useState(false);
 
+  // Utility: map a free-text book name to a canonical entry in BOOKS
+  const resolveBook = useCallback((raw) => {
+    if (!raw) return null;
+    const norm = String(raw).toLowerCase().replace(/[^a-z0-9]/g, "");
+    // Prefer exact normalized match, then startsWith
+    let found = BOOKS.find(b => b.toLowerCase().replace(/[^a-z0-9]/g, "") === norm);
+    if (found) return found;
+    found = BOOKS.find(b => b.toLowerCase().replace(/[^a-z0-9]/g, "").startsWith(norm));
+    return found || null;
+  }, []);
+
+  const handleReferenceGo = useCallback((text) => {
+    const s = (text || "").trim();
+    if (!s) return;
+    // Accept formats like "Romans 3:16" or "1 Cor 5:7" (book can have spaces)
+    const m = s.match(/^\s*(.+?)\s+(\d+):(\d+)\s*$/i);
+    if (!m) return;
+    const bookLabel = resolveBook(m[1]);
+    const chapter = Number(m[2]);
+    const verse = Number(m[3]);
+    if (!bookLabel || !Number.isFinite(chapter) || chapter <= 0 || !Number.isFinite(verse) || verse <= 0) return;
+
+    setSelectedBook(bookLabel);
+    setSelectedChapter(chapter);
+    setRequestedVerseNumber(verse);
+    setPendingGoto({ book: bookLabel, chapter, verse });
+
+    if (location.pathname !== "/") {
+      const params = new URLSearchParams();
+      if (selectedVersion) params.set("version", selectedVersion);
+      params.set("book", bookLabel);
+      params.set("chapter", String(chapter));
+      params.set("verse", String(verse));
+      navigate({ pathname: "/", search: `?${params.toString()}` });
+    }
+  }, [location.pathname, navigate, resolveBook, selectedVersion]);
+
   useEffect(() => {
     if (location.pathname !== "/") {
       return;
@@ -366,6 +403,14 @@ function App() {
       setSelectedVerseId(match.id);
     }
   }, [chapterData, requestedVerseNumber, selectedVerseId]);
+
+  // When verse number changes (e.g., via Verse input), scroll to the verse unless a pendingGoto flow will handle it
+  useEffect(() => {
+    if (!chapterData || requestedVerseNumber == null || pendingGoto) return;
+    try {
+      window.dispatchEvent(new CustomEvent("goto-verse", { detail: { book: selectedBook, chapter: selectedChapter, verse: requestedVerseNumber } }));
+    } catch {}
+  }, [chapterData?.book, chapterData?.chapter, requestedVerseNumber, pendingGoto, selectedBook, selectedChapter]);
 
   useEffect(() => {
     async function loadAuthorSubscriptions() {
@@ -697,6 +742,7 @@ function App() {
           verse={requestedVerseNumber}
           onVerseChange={handleVerseChange}
           loadingChapter={isLoadingChapter}
+          onReferenceGo={handleReferenceGo}
         />
       ) : (
         <div className="toolbar-placeholder">
