@@ -451,7 +451,17 @@ input:focus, select:focus, textarea:focus {
 .caret.open { transform: rotate(180deg); }
 
 /* Slight extra top padding to visually match the tabbed header column */
-.pane-content.top-gap { padding-top: 1.25rem; }
+.pane-content.top-gap { padding-top: 2.75rem; }
+
+/* Compact commentator controls */
+.commentary-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.commentary-controls label { font-size: 0.9rem; color: #374151; }
+.commentary-controls select { padding: 0.35rem 0.5rem; }
 @keyframes noteFlash {
   0% { box-shadow: 0 0 0 3px rgba(37,99,235,0.25), var(--shadow); }
   60% { box-shadow: 0 0 0 1px rgba(37,99,235,0.15), var(--shadow); }

@@ -65,13 +65,6 @@ function CommentaryPane({
     setCommBacklinksOpen(val);
     try { localStorage.setItem("commentaryBacklinksOpen", val ? "1" : "0"); } catch {}
   };
-  const [subsOpen, setSubsOpen] = useState(() => {
-    try { return localStorage.getItem("commentarySubsOpen") !== "0"; } catch { return true; }
-  });
-  const toggleSubsOpen = (val) => {
-    setSubsOpen(val);
-    try { localStorage.setItem("commentarySubsOpen", val ? "1" : "0"); } catch {}
-  };
   const listRef = useRef(null);
   const contentRef = useRef(null);
   const [extraTopMargin, setExtraTopMargin] = useState(0);
@@ -227,38 +220,22 @@ function CommentaryPane({
         </div>
       </div>
       <div className="pane-content top-gap" ref={contentRef}>
-        <div className="commentary-section">
-          <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleSubsOpen(!subsOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubsOpen(!subsOpen); }}}>
-            <span>Select commentator</span>
-            <span className={`caret ${subsOpen ? 'open' : ''}`}>▾</span>
-          </div>
-          {subsOpen ? (
-            isAuthenticated ? (
-              authors.length ? (
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <select
-                    value={selectedAuthorId || ""}
-                    onChange={event => onSelectAuthor(Number(event.target.value))}
-                  >
-                    <option value="" disabled>
-                      Select a commentator
-                    </option>
-                    {authors.map(a => (
-                      <option key={a.author_id} value={a.author_id}>
-                        {a.author_display_name || "Unknown"}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedAuthorId ? (
-                    <button type="button" aria-label="Clear selection" onClick={() => onSelectAuthor(null)}>×</button>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="empty-state">No subscriptions yet.</div>
-              )
-            ) : (
-              <div className="empty-state">Login to view your subscriptions.</div>
-            )
+        <div className="commentary-controls">
+          <label htmlFor="commSelect">Select commentator:</label>
+          <select
+            id="commSelect"
+            value={selectedAuthorId || ""}
+            onChange={event => onSelectAuthor(event.target.value ? Number(event.target.value) : null)}
+          >
+            <option value="">Choose…</option>
+            {authors.map(a => (
+              <option key={a.author_id} value={a.author_id}>
+                {a.author_display_name || "Unknown"}
+              </option>
+            ))}
+          </select>
+          {selectedAuthorId ? (
+            <button type="button" aria-label="Clear selection" onClick={() => onSelectAuthor(null)}>×</button>
           ) : null}
         </div>
 
