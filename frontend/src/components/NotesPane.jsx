@@ -178,8 +178,8 @@ function NotesPane({
         if (prevMin) el.style.minHeight = prevMin;
         if (v) heights[v] = h;
       }
-      const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
-      const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
+      const rawTop = list.getBoundingClientRect().top - container.getBoundingClientRect().top;
+      const baseTop = rawTop - (extraTopMargin || 0);
       try {
         window.dispatchEvent(new CustomEvent('notes-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) } }));
       } catch {}
@@ -217,10 +217,10 @@ function NotesPane({
         el.style.minHeight = '';
         el.style.height = h ? `${h}px` : '';
       }
-      const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
-      const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
+      const rawTop = list.getBoundingClientRect().top - container.getBoundingClientRect().top;
+      const baseTop = rawTop - (extraTopMargin || 0);
       const target = Number(d.topOffset) || 0;
-      const desired = Math.max(0, Math.round(target - baseTop));
+      const desired = Math.round(target - baseTop);
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
     window.addEventListener('bible-verse-heights', onBibleHeights);
