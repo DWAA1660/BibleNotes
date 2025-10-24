@@ -311,9 +311,11 @@ function NotesPane({
         ) : syncNotes ? (
           <div className="notes-list" ref={listRef} style={{ marginTop: extraTopMargin ? `${extraTopMargin}px` : undefined }}>
             {verses.map(v => {
+              const myUserId = (currentUser && Number(currentUser.id)) || (Array.isArray(notes) && notes.length ? Number(notes[0].owner_id) : null);
               const filtered = (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes);
               const verseNotes = filtered.filter(n => Number(n.start_verse) === Number(v.verse));
-              const verseBacklinks = Array.isArray(v.backlinks) ? v.backlinks : [];
+              const verseBacklinksAll = Array.isArray(v.backlinks) ? v.backlinks : [];
+              const myBacklinks = myUserId ? verseBacklinksAll.filter(b => Number(b.note_owner_id) === Number(myUserId)) : [];
               const isOpen = !!openBacklinks[v.verse];
               return (
                 <div key={`row-${v.id}`} className="note-row" data-sync-verse={v.verse}>
@@ -322,14 +324,14 @@ function NotesPane({
                       <div className="empty-text">No notes for this verse yet.</div>
                       <div className="note-meta empty-ref">{book} {v.chapter}:{v.verse}</div>
                       <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
-                        <span>Backlinks ({verseBacklinks.length})</span>
+                        <span>Backlinks ({myBacklinks.length})</span>
                         <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
                       </div>
-                      {isOpen && verseBacklinks.length ? (
+                      {isOpen && myBacklinks.length ? (
                         <div className="backlinks-box">
                           <div className="backlinks-title">Backlinks</div>
                           <div className="backlinks-list">
-                            {verseBacklinks.map(b => (
+                            {myBacklinks.map(b => (
                               <div
                                 key={b.note_id}
                                 className="backlink-item"
@@ -427,14 +429,14 @@ function NotesPane({
                           {idx === 0 ? (
                             <>
                               <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
-                                <span>Backlinks ({verseBacklinks.length})</span>
+                                <span>Backlinks ({myBacklinks.length})</span>
                                 <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
                               </div>
-                              {isOpen && verseBacklinks.length ? (
+                              {isOpen && myBacklinks.length ? (
                                 <div className="backlinks-box">
                                   <div className="backlinks-title">Backlinks</div>
                                   <div className="backlinks-list">
-                                    {verseBacklinks.map(b => (
+                                    {myBacklinks.map(b => (
                                       <div
                                         key={b.note_id}
                                         className="backlink-item"
