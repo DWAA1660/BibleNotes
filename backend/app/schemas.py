@@ -63,6 +63,9 @@ class BacklinkRead(BaseModel):
     note_owner_name: Optional[str] = None
     note_owner_id: int
     note_is_public: bool
+    source_book: str
+    source_chapter: int
+    source_verse: int
 
 
 class VerseWithBacklinks(VerseRead):

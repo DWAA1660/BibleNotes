@@ -5,7 +5,6 @@ import html
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
-from sqlalchemy import or_
 
 from ..dependencies import get_db, get_optional_user
 from ..models import BibleVersion, Note, NoteCrossReference, User, Verse
@@ -86,28 +85,37 @@ def read_chapter(
     if not verses:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    verse_ids = [verse.id for verse in verses]
+    verse_ids = [v.id for v in verses]
+    canon_to_vid = {v.canonical_id: v.id for v in verses}
 
     backlinks_map: dict[int, list[BacklinkRead]] = {vid: [] for vid in verse_ids}
 
-    if verse_ids:
+    if canon_to_vid:
+        SrcVerse = aliased(Verse)
         results = session.exec(
-            select(NoteCrossReference, Note, User)
+            select(NoteCrossReference, Note, User, SrcVerse)
             .join(Note, Note.id == NoteCrossReference.note_id)
             .join(User, User.id == Note.owner_id)
-            .where(NoteCrossReference.target_verse_id.in_(verse_ids))
+            .join(SrcVerse, SrcVerse.id == Note.start_verse_id)
+            .where(NoteCrossReference.canonical_id.in_(list(canon_to_vid.keys())))
         ).all()
 
-        for cross_ref, note, owner in results:
+        for cross_ref, note, owner, src in results:
             if not note.is_public and (not current_user or note.owner_id != current_user.id):
                 continue
-            backlinks_map[cross_ref.target_verse_id].append(
+            target_vid = canon_to_vid.get(cross_ref.canonical_id)
+            if not target_vid:
+                continue
+            backlinks_map[target_vid].append(
                 BacklinkRead(
                     note_id=note.id,
                     note_title=note.title,
                     note_owner_name=owner.display_name or owner.email,
                     note_owner_id=owner.id,
                     note_is_public=note.is_public,
+                    source_book=src.book,
+                    source_chapter=src.chapter,
+                    source_verse=src.verse,
                 )
             )
 

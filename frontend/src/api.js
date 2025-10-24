@@ -47,6 +47,9 @@ export const api = {
   fetchChapter(version, book, chapter) {
     return request(`/bible/${encodeURIComponent(version)}/${encodeURIComponent(book)}/${chapter}`);
   },
+  fetchBacklinks(version, book, chapter, verse) {
+    return request(`/backlinks/${encodeURIComponent(version)}/${encodeURIComponent(book)}/${chapter}/${verse}`);
+  },
   fetchNotes(version, book, chapter) {
     return request(`/notes/${encodeURIComponent(version)}/${encodeURIComponent(book)}/${chapter}`);
   },

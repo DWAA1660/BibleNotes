@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Iterable, List, Tuple
+from typing import Iterable, List
 
 BOOK_ALIASES = {
     "gen": "Genesis",
@@ -100,10 +100,14 @@ BOOK_ALIASES = {
     "re": "Revelation",
 }
 
+# Matches a single scripture reference, e.g., "Romans 1:1-3" or "1 Cor 5:7"
 REFERENCE_REGEX = re.compile(
-    r"\b(?P<book>(?:[1-3]?\s?[A-Za-z]+)|(?:[1-3][A-Za-z]+)|(?:[A-Za-z]+))\s(?P<chapter>\d+)(?::(?P<verse>\d+)(?:-(?P<endverse>\d+))?)?",
+    r"\b(?P<book>(?:[1-3]?\s?[A-Za-z]+)|(?:[1-3][A-Za-z]+)|(?:[A-Za-z]+))\s+(?P<chapter>\d+)(?::(?P<verse>\d+)(?:-(?P<endverse>\d+))?)?",
     re.IGNORECASE,
 )
+
+# Extracts text inside parentheses; we only treat references in parentheses as backlinks
+PAREN_CONTENT = re.compile(r"\(([^)]{0,1000})\)")
 
 
 @dataclass
@@ -124,23 +128,33 @@ def normalize_book(name: str) -> str:
 
 
 def parse_references(text: str) -> List[VerseReference]:
+    """
+    Parse references ONLY when they appear inside parentheses, e.g.,
+    "This shows a lot (Romans 1:2) and also (John 3:16-18, Acts 2:1)".
+    Multiple references inside one pair of parentheses are supported and
+    can be separated by spaces, commas, or semicolons.
+    """
     references: List[VerseReference] = []
-    for match in REFERENCE_REGEX.finditer(text):
-        book_raw = match.group("book")
-        chapter = int(match.group("chapter"))
-        verse = match.group("verse")
-        endverse = match.group("endverse")
+    if not text:
+      return references
+    for paren in PAREN_CONTENT.finditer(text):
+        inner = paren.group(1) or ""
+        for match in REFERENCE_REGEX.finditer(inner):
+            book_raw = match.group("book")
+            chapter = int(match.group("chapter"))
+            verse = match.group("verse")
+            endverse = match.group("endverse")
 
-        verse_start = int(verse) if verse else 1
-        verse_end = int(endverse) if endverse else verse_start
-        references.append(
-            VerseReference(
-                book=normalize_book(book_raw),
-                chapter=chapter,
-                verse_start=verse_start,
-                verse_end=verse_end,
+            verse_start = int(verse) if verse else 1
+            verse_end = int(endverse) if endverse else verse_start
+            references.append(
+                VerseReference(
+                    book=normalize_book(book_raw),
+                    chapter=chapter,
+                    verse_start=verse_start,
+                    verse_end=verse_end,
+                )
             )
-        )
     return references
 
 

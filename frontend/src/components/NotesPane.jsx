@@ -21,7 +21,9 @@ function NotesPane({
   noteError = "",
   isLoading = false,
   isAuthenticated = false,
-  currentUser = null
+  currentUser = null,
+  backlinks = [],
+  isLoadingBacklinks = false
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -62,6 +64,9 @@ function NotesPane({
     setIsPublic(false);
     setEndVerseId(null);
   };
+
+  // Backlinks in chapter payload are note metadata (not verse references)
+  // Format as "Title · by Author" and optionally indicate privacy
 
   const beginEdit = async note => {
     setEditingNoteId(note.id);
@@ -113,6 +118,40 @@ function NotesPane({
         ) : (
           <div className="empty-state">Select a verse to create notes.</div>
         )}
+
+        {selectedVerse ? (
+          <div className="commentary-section">
+            <div className="section-title">Backlinks to this verse</div>
+            {isLoadingBacklinks ? (
+              <div className="loading-state">Loading backlinks…</div>
+            ) : backlinks?.length ? (
+              <div className="commentary-list">
+                {backlinks.map((b) => (
+                  <div
+                    key={b.note_id}
+                    className="commentary-item"
+                    onClick={() => {
+                      try {
+                        window.dispatchEvent(new CustomEvent("open-verse", { detail: { book: b.source_book, chapter: b.source_chapter, verse: b.source_verse } }));
+                      } catch {}
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="note-title" style={{ fontWeight: 600 }}>{b.note_title || "Untitled"}</div>
+                    <div className="note-meta">
+                      by {b.note_owner_name || "Unknown"}{b.note_is_public ? "" : " (private)"}
+                      {b.source_book && b.source_chapter && b.source_verse ? (
+                        <> · {b.source_book} {b.source_chapter}:{b.source_verse}</>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">No backlinks found for this verse.</div>
+            )}
+          </div>
+        ) : null}
 
         {isAuthenticated ? (
           <form className="notes-form" onSubmit={handleSubmit}>
@@ -249,7 +288,9 @@ NotesPane.propTypes = {
   isAuthenticated: PropTypes.bool,
   currentUser: PropTypes.shape({
     id: PropTypes.number.isRequired
-  })
+  }),
+  backlinks: PropTypes.array,
+  isLoadingBacklinks: PropTypes.bool
 };
 
 export default NotesPane;

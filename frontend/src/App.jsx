@@ -119,6 +119,8 @@ function App() {
   const [selectionMode, setSelectionMode] = useState(() => localStorage.getItem("selectionMode") || "verse");
   const [pendingGoto, setPendingGoto] = useState(null);
   const [concordanceQuery, setConcordanceQuery] = useState("");
+  const [backlinks, setBacklinks] = useState([]);
+  const [isLoadingBacklinks, setIsLoadingBacklinks] = useState(false);
 
   useEffect(() => {
     setToken(authToken);
@@ -217,6 +219,19 @@ function App() {
     }
     setPendingGoto(null);
   }, [pendingGoto, chapterData]);
+
+  // Global navigation request from panes (e.g., backlinks click)
+  useEffect(() => {
+    function onOpenVerse(e) {
+      const d = e.detail || {};
+      if (!d.book || !d.chapter || !d.verse) return;
+      setSelectedBook(d.book);
+      setSelectedChapter(Number(d.chapter));
+      setPendingGoto({ book: d.book, chapter: Number(d.chapter), verse: Number(d.verse) });
+    }
+    window.addEventListener("open-verse", onOpenVerse);
+    return () => window.removeEventListener("open-verse", onOpenVerse);
+  }, []);
 
   useEffect(() => {
     if (!selectedVersion || !selectedBook || !selectedChapter) {
@@ -330,15 +345,14 @@ function App() {
       setIsLoadingCommentaries(true);
       try {
         const data = await api.fetchAuthorNotes(selectedAuthorId);
-        const filtered = (data.notes || []).filter(n => n.start_book === selectedBook && n.start_chapter === selectedChapter);
-        setAuthorNotes(filtered);
+        setAuthorNotes(Array.isArray(data?.notes) ? data.notes : []);
       } catch {
         setAuthorNotes([]);
       } finally {
         setIsLoadingCommentaries(false);
       }
     })();
-  }, [selectedAuthorId, selectedBook, selectedChapter, chapterData]);
+  }, [selectedAuthorId]);
 
   const handleSubscribeAuthor = async authorId => {
     if (!authToken) return;
@@ -365,13 +379,17 @@ function App() {
     } catch {}
   };
 
-  const handleSelectAuthor = async authorId => {
-    setSelectedAuthorId(authorId || null);
+  const handleSelectAuthor = async (authorId) => {
+    const id = authorId || null;
+    setSelectedAuthorId(id);
+    if (!id) {
+      setAuthorNotes([]);
+      return;
+    }
     setIsLoadingCommentaries(true);
     try {
-      const data = await api.fetchAuthorNotes(authorId);
-      const filtered = (data.notes || []).filter(n => n.start_book === selectedBook && n.start_chapter === selectedChapter);
-      setAuthorNotes(filtered);
+      const data = await api.fetchAuthorNotes(id);
+      setAuthorNotes(Array.isArray(data?.notes) ? data.notes : []);
     } catch {
       setAuthorNotes([]);
     } finally {
@@ -385,6 +403,16 @@ function App() {
     }
     return chapterData.verses.find(verse => verse.id === selectedVerseId) || null;
   }, [chapterData, selectedVerseId]);
+
+  // Use chapter-provided backlinks on the selected verse
+  useEffect(() => {
+    if (!selectedVerse) {
+      setBacklinks([]);
+      return;
+    }
+    setBacklinks(Array.isArray(selectedVerse.backlinks) ? selectedVerse.backlinks : []);
+    setIsLoadingBacklinks(false);
+  }, [selectedVerse?.id]);
 
   const handleAuthSubmit = async event => {
     event.preventDefault();
@@ -569,6 +597,9 @@ function App() {
                   noteError={noteError}
                   isLoading={isLoadingNotes}
                   isAuthenticated={Boolean(authToken)}
+                  currentUser={profileData || null}
+                  backlinks={Boolean(authToken) && profileData ? backlinks.filter(b => b.note_owner_id === profileData.id) : []}
+                  isLoadingBacklinks={isLoadingBacklinks}
                 />
                 <BiblePane
                   chapterData={chapterData}
@@ -589,6 +620,7 @@ function App() {
                     onSelectAuthor={handleSelectAuthor}
                     authorNotes={authorNotes}
                     isLoading={isLoadingCommentaries}
+                    selectedVerse={selectedVerse}
                   />
                 ) : rightPaneTab === "manuscripts" ? (
                   <ManuscriptsPane

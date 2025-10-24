@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { useState } from "react";
 
 function formatReference(note) {
   if (!note) return "";
@@ -16,8 +17,27 @@ function CommentaryPane({
   selectedAuthorId,
   onSelectAuthor,
   authorNotes,
-  isLoading
+  isLoading,
+  selectedVerse
 }) {
+  const selectedCanon = selectedVerse?.canonical_id;
+  const backlinks = Array.isArray(authorNotes) && selectedCanon
+    ? authorNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(selectedCanon))
+    : [];
+
+  const openNoteAnchor = note => {
+    if (!note) return;
+    const b = note.start_book, c = note.start_chapter, v = note.start_verse;
+    if (!b || !c || !v) return;
+    try { window.dispatchEvent(new CustomEvent("open-verse", { detail: { book: b, chapter: c, verse: v } })); } catch {}
+  };
+  const [expanded, setExpanded] = useState(() => {
+    try { return localStorage.getItem("commentaryBacklinksExpanded") === "1"; } catch { return false; }
+  });
+  const toggleExpanded = (val) => {
+    setExpanded(val);
+    try { localStorage.setItem("commentaryBacklinksExpanded", val ? "1" : "0"); } catch {}
+  };
   return (
     <div className="pane">
       <div className="pane-header tabs-header">
@@ -46,6 +66,34 @@ function CommentaryPane({
         </div>
       </div>
       <div className="pane-content">
+        {selectedVerse ? (
+          <div className="commentary-section">
+            <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+              <span>Backlinks to this verse</span>
+              <label style={{ fontWeight: 400 }}>
+                <input type="checkbox" checked={expanded} onChange={e => toggleExpanded(e.target.checked)} /> Expanded view
+              </label>
+            </div>
+            {isLoading ? (
+              <div className="loading-state">Loading…</div>
+            ) : backlinks.length ? (
+              <div className="entries-list">
+                {backlinks.map(note => (
+                  <div key={note.id} className="entry-card" onClick={() => openNoteAnchor(note)} style={{ cursor: 'pointer' }}>
+                    <div className="note-meta">{note.start_book} {note.start_chapter}:{note.start_verse} · Updated {new Date(note.updated_at).toLocaleString()}</div>
+                    <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
+                    {expanded ? (
+                      <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">No backlinks for this verse from the selected commentator.</div>
+            )}
+          </div>
+        ) : null}
+
         <div className="commentary-section">
           <div className="section-title">My Subscriptions</div>
           {isAuthenticated ? (
