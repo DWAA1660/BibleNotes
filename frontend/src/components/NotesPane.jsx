@@ -51,6 +51,14 @@ function NotesPane({
   const [editTags, setEditTags] = useState("");
   // Client-side tag filter for the visible list
   const [activeTag, setActiveTag] = useState("");
+  // Expandable backlinks within the selected verse row
+  const [notesBacklinksOpen, setNotesBacklinksOpen] = useState(() => {
+    try { return localStorage.getItem('notesBacklinksOpen') === '1'; } catch { return false; }
+  });
+  const toggleNotesBacklinks = (val) => {
+    setNotesBacklinksOpen(val);
+    try { localStorage.setItem('notesBacklinksOpen', val ? '1' : '0'); } catch {}
+  };
 
   // Build tag options from the current list so users can filter quickly
   const tagOptions = useMemo(() => {
@@ -191,7 +199,7 @@ function NotesPane({
       window.removeEventListener('resize', rAF);
       try { if (ro) ro.disconnect(); } catch {}
     };
-  }, [syncNotes, book, chapter, verses, notes, activeTag, extraTopMargin]);
+  }, [syncNotes, book, chapter, verses, notes, activeTag, extraTopMargin, notesBacklinksOpen, backlinks, isLoadingBacklinks]);
 
   // Equalize verse row heights with Bible and align tops when syncNotes is on
   useEffect(() => {
@@ -296,7 +304,7 @@ function NotesPane({
           <input type="checkbox" checked={Boolean(syncNotes)} onChange={onToggleSync} /> Sync Notes
         </label>
       </div>
-      <div className="pane-content" ref={contentRef}>
+      <div className="pane-content top-gap" ref={contentRef}>
         {/* Backlinks moved into the selected verse row below. Note creation form removed per request. */}
 
         {noteError ? <div className="error-text">{noteError}</div> : null}
@@ -310,11 +318,17 @@ function NotesPane({
               const verseNotes = filtered.filter(n => Number(n.start_verse) === Number(v.verse));
               return (
                 <div key={`row-${v.id}`} className="note-row" data-sync-verse={v.verse}>
+                  {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) ? (
+                    <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleNotesBacklinks(!notesBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNotesBacklinks(!notesBacklinksOpen); }}}>
+                      <span>Backlinks {Array.isArray(backlinks) ? `(${backlinks.length})` : ''}</span>
+                      <span className={`caret ${notesBacklinksOpen ? 'open' : ''}`}>▾</span>
+                    </div>
+                  ) : null}
                   {verseNotes.length === 0 ? (
                     <div className="note-card empty">
                       <div className="empty-text">No notes for this verse yet.</div>
                       <div className="note-meta empty-ref">{book} {v.chapter}:{v.verse}</div>
-                      {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) ? (
+                      {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && notesBacklinksOpen ? (
                         isLoadingBacklinks ? (
                           <div className="backlinks-box">Loading backlinks…</div>
                         ) : backlinks?.length ? (
@@ -424,7 +438,7 @@ function NotesPane({
                           <div style={{ marginTop: "0.5rem" }}>
                             <button type="button" onClick={() => beginEdit(note)}>Edit</button>
                           </div>
-                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 ? (
+                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && notesBacklinksOpen ? (
                             isLoadingBacklinks ? (
                               <div className="backlinks-box">Loading backlinks…</div>
                             ) : backlinks?.length ? (

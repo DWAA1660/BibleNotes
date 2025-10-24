@@ -57,12 +57,20 @@ function CommentaryPane({
     if (!b || !c || !v) return;
     try { window.dispatchEvent(new CustomEvent("open-verse", { detail: { book: b, chapter: c, verse: v } })); } catch {}
   };
-  const [expanded, setExpanded] = useState(() => {
-    try { return localStorage.getItem("commentaryBacklinksExpanded") === "1"; } catch { return false; }
+  // Expandable toggles
+  const [commBacklinksOpen, setCommBacklinksOpen] = useState(() => {
+    try { return localStorage.getItem("commentaryBacklinksOpen") === "1"; } catch { return false; }
   });
-  const toggleExpanded = (val) => {
-    setExpanded(val);
-    try { localStorage.setItem("commentaryBacklinksExpanded", val ? "1" : "0"); } catch {}
+  const toggleCommBacklinks = (val) => {
+    setCommBacklinksOpen(val);
+    try { localStorage.setItem("commentaryBacklinksOpen", val ? "1" : "0"); } catch {}
+  };
+  const [subsOpen, setSubsOpen] = useState(() => {
+    try { return localStorage.getItem("commentarySubsOpen") !== "0"; } catch { return true; }
+  });
+  const toggleSubsOpen = (val) => {
+    setSubsOpen(val);
+    try { localStorage.setItem("commentarySubsOpen", val ? "1" : "0"); } catch {}
   };
   const listRef = useRef(null);
   const contentRef = useRef(null);
@@ -189,7 +197,7 @@ function CommentaryPane({
       window.removeEventListener('resize', rAF);
       try { if (ro) ro.disconnect(); } catch {}
     };
-  }, [syncNotes, activeTab, book, chapter, verses, authorNotes, extraTopMargin]);
+  }, [syncNotes, activeTab, book, chapter, verses, authorNotes, extraTopMargin, commBacklinksOpen, sortedBacklinks.length]);
 
   return (
     <div className="pane">
@@ -218,63 +226,40 @@ function CommentaryPane({
           </button>
         </div>
       </div>
-      <div className="pane-content" ref={contentRef}>
-        {selectedVerse ? (
-          <div className="commentary-section">
-            <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-              <span>Backlinks to this verse</span>
-              <label style={{ fontWeight: 400 }}>
-                <input type="checkbox" checked={expanded} onChange={e => toggleExpanded(e.target.checked)} /> Expanded view
-              </label>
-            </div>
-            {isLoading ? (
-              <div className="loading-state">Loading…</div>
-            ) : sortedBacklinks.length ? (
-              <div className="entries-list">
-                {sortedBacklinks.map(note => (
-                  <div key={note.id} className="entry-card" onClick={() => openNoteAnchor(note)} style={{ cursor: 'pointer' }}>
-                    <div className="note-meta">{note.start_book} {note.start_chapter}:{note.start_verse} · Updated {new Date(note.updated_at).toLocaleString()}</div>
-                    <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
-                    {expanded ? (
-                      <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state">No backlinks for this verse from the selected commentator.</div>
-            )}
-          </div>
-        ) : null}
-
+      <div className="pane-content top-gap" ref={contentRef}>
         <div className="commentary-section">
-          <div className="section-title">My Subscriptions</div>
-          {isAuthenticated ? (
-            authors.length ? (
-              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <select
-                  value={selectedAuthorId || ""}
-                  onChange={event => onSelectAuthor(Number(event.target.value))}
-                >
-                  <option value="" disabled>
-                    Select a commentator
-                  </option>
-                  {authors.map(a => (
-                    <option key={a.author_id} value={a.author_id}>
-                      {a.author_display_name || "Unknown"}
+          <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleSubsOpen(!subsOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSubsOpen(!subsOpen); }}}>
+            <span>Select commentator</span>
+            <span className={`caret ${subsOpen ? 'open' : ''}`}>▾</span>
+          </div>
+          {subsOpen ? (
+            isAuthenticated ? (
+              authors.length ? (
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <select
+                    value={selectedAuthorId || ""}
+                    onChange={event => onSelectAuthor(Number(event.target.value))}
+                  >
+                    <option value="" disabled>
+                      Select a commentator
                     </option>
-                  ))}
-                </select>
-                {selectedAuthorId ? (
-                  <button type="button" aria-label="Clear selection" onClick={() => onSelectAuthor(null)}>×</button>
-                ) : null}
-              </div>
+                    {authors.map(a => (
+                      <option key={a.author_id} value={a.author_id}>
+                        {a.author_display_name || "Unknown"}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedAuthorId ? (
+                    <button type="button" aria-label="Clear selection" onClick={() => onSelectAuthor(null)}>×</button>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="empty-state">No subscriptions yet.</div>
+              )
             ) : (
-              <div className="empty-state">No subscriptions yet.</div>
+              <div className="empty-state">Login to view your subscriptions.</div>
             )
-          ) : (
-            <div className="empty-state">Login to view your subscriptions.</div>
-          )}
+          ) : null}
         </div>
 
         <div className="commentary-section">
@@ -288,14 +273,47 @@ function CommentaryPane({
                   const verseNotes = authorNotes.filter(n => Number(n.start_verse) === Number(v.verse));
                   return (
                     <div key={`row-${v.id}`} className="entry-row" data-sync-verse={v.verse}>
-                      {verseNotes.length === 0 ? (
-                        <div className="entry-card empty" />
+                      {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) ? (
+                        <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleCommBacklinks(!commBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCommBacklinks(!commBacklinksOpen); }}}>
+                          <span>Backlinks {sortedBacklinks.length ? `(${sortedBacklinks.length})` : ''}</span>
+                          <span className={`caret ${commBacklinksOpen ? 'open' : ''}`}>▾</span>
+                        </div>
                       ) : null}
-                      {verseNotes.map(note => (
+                      {verseNotes.length === 0 ? (
+                        <div className="entry-card empty">
+                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && commBacklinksOpen && sortedBacklinks.length ? (
+                            <div className="backlinks-box">
+                              <div className="backlinks-title">Backlinks</div>
+                              <div className="backlinks-list">
+                                {sortedBacklinks.map(b => (
+                                  <div key={b.id} className="backlink-item" onClick={() => openNoteAnchor(b)} style={{ cursor: 'pointer' }}>
+                                    <div className="note-title" style={{ fontWeight: 600 }}>{b.title || 'Untitled'}</div>
+                                    <div className="note-meta">{b.start_book} {b.start_chapter}:{b.start_verse}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {verseNotes.map((note, idx) => (
                         <div key={note.id} className="entry-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse} data-book={note.start_book} data-chapter={note.start_chapter}>
                           <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
                           <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
                           <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && commBacklinksOpen && sortedBacklinks.length ? (
+                            <div className="backlinks-box">
+                              <div className="backlinks-title">Backlinks</div>
+                              <div className="backlinks-list">
+                                {sortedBacklinks.map(b => (
+                                  <div key={b.id} className="backlink-item" onClick={() => openNoteAnchor(b)} style={{ cursor: 'pointer' }}>
+                                    <div className="note-title" style={{ fontWeight: 600 }}>{b.title || 'Untitled'}</div>
+                                    <div className="note-meta">{b.start_book} {b.start_chapter}:{b.start_verse}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>

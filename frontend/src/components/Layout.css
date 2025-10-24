@@ -433,6 +433,25 @@ input:focus, select:focus, textarea:focus {
 .backlinks-list { display: flex; flex-direction: column; gap: 0.25rem; }
 .backlink-item { padding: 0.35rem 0.4rem; border-radius: 0.35rem; }
 .backlink-item:hover { background: #f3f4f6; }
+
+/* Inline expandable toggle used inside verse rows */
+.backlinks-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #374151;
+  padding: 0.25rem 0.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+.backlinks-toggle:hover { color: #111827; }
+.caret { transition: transform 150ms ease; display: inline-block; }
+.caret.open { transform: rotate(180deg); }
+
+/* Slight extra top padding to visually match the tabbed header column */
+.pane-content.top-gap { padding-top: 1.25rem; }
 @keyframes noteFlash {
   0% { box-shadow: 0 0 0 3px rgba(37,99,235,0.25), var(--shadow); }
   60% { box-shadow: 0 0 0 1px rgba(37,99,235,0.15), var(--shadow); }

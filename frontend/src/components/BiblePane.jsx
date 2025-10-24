@@ -364,7 +364,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
           </button>
         </div>
       </div>
-      <div className="pane-content" ref={contentRef}>
+      <div className="pane-content top-gap" ref={contentRef}>
         {isLoading ? (
           <div className="loading-state">Loading chapter...</div>
         ) : !chapterData ? (
