@@ -41,6 +41,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
   const contentRef = useRef(null);
   const listRef = useRef(null);
   const [topSpacerHeight, setTopSpacerHeight] = useState(0);
+  const [commentarySpacer, setCommentarySpacer] = useState(0);
   const baseTopOffsetRef = useRef(0);
   const lastBroadcastRef = useRef({ top: -1, hash: "" });
   const stabilizingRef = useRef(false);
@@ -112,7 +113,8 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       }
       // Base offset excludes any spacer we apply for alignment
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
-      const baseTop = Math.max(0, rawTop - topSpacerHeight);
+      const effectiveSpacer = activeTab === 'manuscripts' ? topSpacerHeight : (syncNotes ? commentarySpacer : 0);
+      const baseTop = Math.max(0, rawTop - effectiveSpacer);
       baseTopOffsetRef.current = baseTop;
       // Equalize with external pane heights when syncNotes
       const outHeights = {};
@@ -155,7 +157,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     rAF();
     window.addEventListener('resize', rAF);
     return () => window.removeEventListener('resize', rAF);
-  }, [activeTab, chapterData, selectedVerseId, topSpacerHeight, syncNotes, heightsVersion]);
+  }, [activeTab, chapterData, selectedVerseId, topSpacerHeight, commentarySpacer, syncNotes, heightsVersion]);
 
   // Listen for Notes/Commentary height measurements during Sync Notes
   useEffect(() => {
@@ -174,9 +176,17 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     }
     window.addEventListener('notes-verse-heights', onNotesHeights);
     window.addEventListener('commentary-verse-heights', onCommHeights);
+    function onCommTop(e) {
+      const d = e.detail || {};
+      if (d.book !== chapterData.book || Number(d.chapter) !== Number(chapterData.chapter)) return;
+      const desired = Math.max(0, Math.round((Number(d.topOffset) || 0) - (baseTopOffsetRef.current || 0)));
+      setCommentarySpacer(prev => (Math.abs(prev - desired) > 1 ? desired : prev));
+    }
+    window.addEventListener('commentary-verse-heights', onCommTop);
     return () => {
       window.removeEventListener('notes-verse-heights', onNotesHeights);
       window.removeEventListener('commentary-verse-heights', onCommHeights);
+      window.removeEventListener('commentary-verse-heights', onCommTop);
       notesHeightsRef.current = {};
       commHeightsRef.current = {};
     };
@@ -373,7 +383,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
         ) : !chapterData ? (
           <div className="empty-state">Select a version, book, and chapter to begin.</div>
         ) : (
-          <div className="verse-list" ref={listRef} style={{ marginTop: activeTab === 'manuscripts' ? `${topSpacerHeight}px` : undefined }}>
+          <div className="verse-list" ref={listRef} style={{ marginTop: activeTab === 'manuscripts' ? `${topSpacerHeight}px` : (syncNotes ? `${commentarySpacer}px` : undefined) }}>
             {chapterData.verses.map(verse => (
               <div
                 key={verse.id}

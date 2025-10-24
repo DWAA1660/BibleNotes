@@ -224,8 +224,8 @@ function CommentaryPane({
           <label htmlFor="commSelect">Select commentator:</label>
           <select
             id="commSelect"
-            value={selectedAuthorId || ""}
-            onChange={event => onSelectAuthor(event.target.value ? Number(event.target.value) : null)}
+            value={selectedAuthorId ?? ""}
+            onChange={event => onSelectAuthor(event.target.value === "" ? null : Number(event.target.value))}
           >
             <option value="">Choose…</option>
             {authors.map(a => (
@@ -332,7 +332,7 @@ CommentaryPane.propTypes = {
       author_display_name: PropTypes.string
     })
   ).isRequired,
-  selectedAuthorId: PropTypes.number,
+  selectedAuthorId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   onSelectAuthor: PropTypes.func.isRequired,
   authorNotes: PropTypes.array.isRequired,
   isLoading: PropTypes.bool,
