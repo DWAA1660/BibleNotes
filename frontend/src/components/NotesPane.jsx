@@ -318,16 +318,16 @@ function NotesPane({
               const verseNotes = filtered.filter(n => Number(n.start_verse) === Number(v.verse));
               return (
                 <div key={`row-${v.id}`} className="note-row" data-sync-verse={v.verse}>
-                  {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) ? (
-                    <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleNotesBacklinks(!notesBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNotesBacklinks(!notesBacklinksOpen); }}}>
-                      <span>Backlinks {Array.isArray(backlinks) ? `(${backlinks.length})` : ''}</span>
-                      <span className={`caret ${notesBacklinksOpen ? 'open' : ''}`}>▾</span>
-                    </div>
-                  ) : null}
                   {verseNotes.length === 0 ? (
                     <div className="note-card empty">
                       <div className="empty-text">No notes for this verse yet.</div>
                       <div className="note-meta empty-ref">{book} {v.chapter}:{v.verse}</div>
+                      {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && Array.isArray(backlinks) && backlinks.length ? (
+                        <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleNotesBacklinks(!notesBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNotesBacklinks(!notesBacklinksOpen); }}}>
+                          <span>Backlinks {Array.isArray(backlinks) ? `(${backlinks.length})` : ''}</span>
+                          <span className={`caret ${notesBacklinksOpen ? 'open' : ''}`}>▾</span>
+                        </div>
+                      ) : null}
                       {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && notesBacklinksOpen ? (
                         isLoadingBacklinks ? (
                           <div className="backlinks-box">Loading backlinks…</div>
@@ -438,6 +438,12 @@ function NotesPane({
                           <div style={{ marginTop: "0.5rem" }}>
                             <button type="button" onClick={() => beginEdit(note)}>Edit</button>
                           </div>
+                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && Array.isArray(backlinks) && backlinks.length ? (
+                            <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleNotesBacklinks(!notesBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNotesBacklinks(!notesBacklinksOpen); }}}>
+                              <span>Backlinks {Array.isArray(backlinks) ? `(${backlinks.length})` : ''}</span>
+                              <span className={`caret ${notesBacklinksOpen ? 'open' : ''}`}>▾</span>
+                            </div>
+                          ) : null}
                           {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && notesBacklinksOpen ? (
                             isLoadingBacklinks ? (
                               <div className="backlinks-box">Loading backlinks…</div>
