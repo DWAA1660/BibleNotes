@@ -9,6 +9,8 @@ function VersionSelector({
   onBookChange,
   chapter,
   onChapterChange,
+  verse,
+  onVerseChange,
   loadingChapter = false,
   actions = null
 }) {
@@ -53,6 +55,20 @@ function VersionSelector({
         />
         {loadingChapter ? <span className="loading-state">Loading...</span> : null}
       </div>
+      <div className="toolbar-section">
+        <label htmlFor="verse-input">Verse</label>
+        <input
+          id="verse-input"
+          type="number"
+          min={1}
+          value={verse ?? ""}
+          onChange={event => {
+            const value = event.target.value;
+            const parsed = value === "" ? null : Number(value);
+            onVerseChange(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+          }}
+        />
+      </div>
       {actions ? <div className="toolbar-buttons">{actions}</div> : null}
     </div>
   );
@@ -73,6 +89,8 @@ VersionSelector.propTypes = {
   onBookChange: PropTypes.func.isRequired,
   chapter: PropTypes.number.isRequired,
   onChapterChange: PropTypes.func.isRequired,
+  verse: PropTypes.number,
+  onVerseChange: PropTypes.func.isRequired,
   loadingChapter: PropTypes.bool,
   actions: PropTypes.node
 };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, setToken } from "./api.js";
 import VersionSelector from "./components/VersionSelector.jsx";
@@ -81,25 +81,40 @@ const BOOKS = [
 ];
 
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const referenceFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const versionParam = params.get("version") || "";
+    const bookParam = params.get("book") || "";
+    const chapterParam = params.get("chapter");
+    const verseParam = params.get("verse");
+    const chapterValue = chapterParam ? Number.parseInt(chapterParam, 10) : NaN;
+    const verseValue = verseParam ? Number.parseInt(verseParam, 10) : NaN;
+    const normalizedChapter = Number.isInteger(chapterValue) && chapterValue > 0 ? chapterValue : null;
+    const normalizedVerse = Number.isInteger(verseValue) && verseValue > 0 ? verseValue : null;
+    return {
+      version: versionParam || null,
+      book: BOOKS.includes(bookParam) ? bookParam : null,
+      chapter: normalizedChapter,
+      verse: normalizedVerse
+    };
+  }, [location.search]);
+
   const [versions, setVersions] = useState([]);
-  const [selectedVersion, setSelectedVersion] = useState(() => localStorage.getItem("selectedVersion") || "");
-  const [selectedBook, setSelectedBook] = useState(() => localStorage.getItem("selectedBook") || "Genesis");
-  const [selectedChapter, setSelectedChapter] = useState(() => {
-    const stored = localStorage.getItem("selectedChapter");
-    return stored ? Number(stored) || 1 : 1;
-  });
+  const [selectedVersion, setSelectedVersion] = useState(() => referenceFromUrl.version || "");
+  const [selectedBook, setSelectedBook] = useState(() => referenceFromUrl.book || "Genesis");
+  const [selectedChapter, setSelectedChapter] = useState(() => referenceFromUrl.chapter || 1);
+  const [requestedVerseNumber, setRequestedVerseNumber] = useState(() => referenceFromUrl.verse ?? null);
   const [chapterData, setChapterData] = useState(null);
   const [notes, setNotes] = useState([]);
-  const [selectedVerseId, setSelectedVerseId] = useState(() => {
-    const stored = localStorage.getItem("selectedVerseId");
-    return stored ? Number(stored) || null : null;
-  });
+  const [selectedVerseId, setSelectedVerseId] = useState(null);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem("authToken"));
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
   const [noteError, setNoteError] = useState("");
   const [isLoadingChapter, setIsLoadingChapter] = useState(false);
-  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+  const [isLoadingNotes, setIsLoadingNotes] =useState(false);
   const [isLoadingCommentaries, setIsLoadingCommentaries] = useState(false);
   const [authorSubscriptions, setAuthorSubscriptions] = useState([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState(() => {
@@ -109,8 +124,6 @@ function App() {
   const [authorNotes, setAuthorNotes] = useState([]);
   const [commentarySearchTerm, setCommentarySearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const location = useLocation();
-  const navigate = useNavigate();
   const [profileData, setProfileData] = useState(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
@@ -121,6 +134,59 @@ function App() {
   const [concordanceQuery, setConcordanceQuery] = useState("");
   const [backlinks, setBacklinks] = useState([]);
   const [isLoadingBacklinks, setIsLoadingBacklinks] = useState(false);
+
+  useEffect(() => {
+    if (location.pathname !== "/") {
+      return;
+    }
+    const { version, book, chapter, verse } = referenceFromUrl;
+    setSelectedVersion(prev => {
+      if (version && prev !== version) {
+        return version;
+      }
+      if (!prev && version) {
+        return version;
+      }
+      return prev;
+    });
+    setSelectedBook(prev => {
+      if (book && prev !== book) {
+        return book;
+      }
+      return prev;
+    });
+    setSelectedChapter(prev => {
+      if (chapter && prev !== chapter) {
+        return chapter;
+      }
+      return prev;
+    });
+    setRequestedVerseNumber(prev => {
+      if (verse !== null && prev !== verse) {
+        return verse;
+      }
+      if (verse === null && prev !== null) {
+        return null;
+      }
+      return prev;
+    });
+  }, [referenceFromUrl, location.pathname]);
+
+  useEffect(() => {
+    if (location.pathname !== "/") {
+      return;
+    }
+    const params = new URLSearchParams();
+    if (selectedVersion) params.set("version", selectedVersion);
+    if (selectedBook) params.set("book", selectedBook);
+    if (selectedChapter) params.set("chapter", String(selectedChapter));
+    if (requestedVerseNumber) params.set("verse", String(requestedVerseNumber));
+    const nextSearch = params.toString();
+    const currentSearch = location.search.startsWith("?") ? location.search.slice(1) : location.search;
+    if (nextSearch !== currentSearch) {
+      navigate({ pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : "" }, { replace: true });
+    }
+  }, [selectedVersion, selectedBook, selectedChapter, requestedVerseNumber, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     setToken(authToken);
@@ -161,38 +227,6 @@ function App() {
     }
     loadVersions();
   }, []);
-
-  useEffect(() => {
-    if (selectedVersion) {
-      localStorage.setItem("selectedVersion", selectedVersion);
-    } else {
-      localStorage.removeItem("selectedVersion");
-    }
-  }, [selectedVersion]);
-
-  useEffect(() => {
-    if (selectedBook) {
-      localStorage.setItem("selectedBook", selectedBook);
-    } else {
-      localStorage.removeItem("selectedBook");
-    }
-  }, [selectedBook]);
-
-  useEffect(() => {
-    if (selectedChapter) {
-      localStorage.setItem("selectedChapter", String(selectedChapter));
-    } else {
-      localStorage.removeItem("selectedChapter");
-    }
-  }, [selectedChapter]);
-
-  useEffect(() => {
-    if (selectedVerseId) {
-      localStorage.setItem("selectedVerseId", String(selectedVerseId));
-    } else {
-      localStorage.removeItem("selectedVerseId");
-    }
-  }, [selectedVerseId]);
 
   // When a word is clicked in the Bible pane, switch to Concordance and seed query
   useEffect(() => {
@@ -245,6 +279,12 @@ function App() {
         setChapterData(data);
         if (data.verses.length > 0) {
           setSelectedVerseId(prev => {
+            if (requestedVerseNumber != null) {
+              const match = data.verses.find(verse => verse.verse === requestedVerseNumber);
+              if (match) {
+                return match.id;
+              }
+            }
             if (prev && data.verses.some(verse => verse.id === prev)) {
               return prev;
             }
@@ -282,7 +322,17 @@ function App() {
       }
     }
     loadChapterAndNotes();
-  }, [selectedVersion, selectedBook, selectedChapter, authToken]);
+  }, [selectedVersion, selectedBook, selectedChapter, requestedVerseNumber, authToken]);
+
+  useEffect(() => {
+    if (!chapterData || requestedVerseNumber != null) {
+      return;
+    }
+    const verse = chapterData.verses.find(v => v.id === selectedVerseId);
+    if (verse && verse.verse !== requestedVerseNumber) {
+      setRequestedVerseNumber(verse.verse);
+    }
+  }, [chapterData, selectedVerseId, requestedVerseNumber]);
 
   useEffect(() => {
     async function loadAuthorSubscriptions() {
@@ -578,22 +628,32 @@ function App() {
         <VersionSelector
           versions={versions}
           selectedVersion={selectedVersion}
-          onVersionChange={value => {
+          onVersionChange={useCallback(value => {
             setSelectedVersion(value);
             setSelectedVerseId(null);
-          }}
+            setRequestedVerseNumber(null);
+          }, [])}
           books={BOOKS}
           selectedBook={selectedBook}
-          onBookChange={value => {
+          onBookChange={useCallback(value => {
             setSelectedBook(value);
             setSelectedChapter(1);
             setSelectedVerseId(null);
-          }}
+            setRequestedVerseNumber(null);
+          }, [])}
           chapter={selectedChapter}
-          onChapterChange={value => {
+          onChapterChange={useCallback(value => {
             setSelectedChapter(value);
             setSelectedVerseId(null);
-          }}
+            setRequestedVerseNumber(null);
+          }, [])}
+          verse={requestedVerseNumber}
+          onVerseChange={useCallback(value => {
+            setRequestedVerseNumber(value);
+            if (value == null) {
+              setSelectedVerseId(null);
+            }
+          }, [])}
           loadingChapter={isLoadingChapter}
         />
       ) : (
@@ -646,7 +706,10 @@ function App() {
                 <BiblePane
                   chapterData={chapterData}
                   selectedVerseId={selectedVerseId}
-                  onSelectVerse={setSelectedVerseId}
+                  onSelectVerse={(verseId, verseNumber) => {
+                    setSelectedVerseId(verseId);
+                    setRequestedVerseNumber(verseNumber ?? null);
+                  }}
                   isLoading={isLoadingChapter}
                   selectionMode={selectionMode}
                   onSelectionModeChange={setSelectionMode}

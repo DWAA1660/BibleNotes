@@ -234,7 +234,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
                 className={`verse-item${verse.id === selectedVerseId ? " active" : ""}`}
                 data-verse={verse.verse}
                 onClick={() => {
-                  onSelectVerse(verse.id);
+                  onSelectVerse(verse.id, verse.verse);
                   try {
                     window.dispatchEvent(new CustomEvent("bible-verse-selected", { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: verse.verse } }));
                   } catch {}
@@ -287,8 +287,8 @@ BiblePane.propTypes = {
   }),
   selectedVerseId: PropTypes.number,
   onSelectVerse: PropTypes.func.isRequired,
-  isLoading: PropTypes.bool,
-  selectionMode: PropTypes.oneOf(["verse", "word"]),
+  isLoading: PropTypes.bool.isRequired,
+  selectionMode: PropTypes.oneOf(["verse", "word"]).isRequired,
   onSelectionModeChange: PropTypes.func,
   activeTab: PropTypes.string
 };
