@@ -156,6 +156,22 @@ function App() {
   const [modalIsPublic, setModalIsPublic] = useState(false);
   const [modalTags, setModalTags] = useState("");
 
+  const modalVersePreview = useMemo(() => {
+    if (!isCreateModalOpen || !chapterData || !modalVerseId) return [];
+    const verses = chapterData.verses || [];
+    const start = verses.find(v => v.id === modalVerseId);
+    if (!start) return [];
+    const endId = modalEndVerseId || modalVerseId;
+    const end = verses.find(v => v.id === endId) || start;
+    const a = Number(start.verse) || 0;
+    const b = Number(end.verse) || a;
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    return verses
+      .filter(v => v.verse >= lo && v.verse <= hi)
+      .map(v => ({ num: v.verse, text: v.text }));
+  }, [isCreateModalOpen, chapterData, modalVerseId, modalEndVerseId]);
+
   // Utility: map a free-text book name to a canonical entry in BOOKS
   const resolveBook = useCallback((raw) => {
     if (!raw) return null;
@@ -835,6 +851,16 @@ function App() {
             <div className="pane-header" style={{ borderBottom: "none", padding: 0, marginBottom: "0.5rem" }}>
               <div style={{ fontWeight: 600 }}>Add Note · {modalBook} {modalChapter}:{modalVerseNumber}</div>
             </div>
+            {modalVersePreview.length ? (
+              <div className="verse-box" style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.5rem", marginBottom: "0.75rem", background: "#f9fafb" }}>
+                {modalVersePreview.map(v => (
+                  <div key={v.num} className="note-meta">
+                    <strong style={{ marginRight: "0.35rem" }}>{v.num}</strong>
+                    <span dangerouslySetInnerHTML={{ __html: v.text }} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <form className="notes-form" onSubmit={e => { e.preventDefault(); submitCreateNoteModal(); }}>
               <input type="text" placeholder="Title" value={modalTitle} onChange={e => setModalTitle(e.target.value)} />
               <textarea placeholder="Write your note..." value={modalContent} onChange={e => setModalContent(e.target.value)} />

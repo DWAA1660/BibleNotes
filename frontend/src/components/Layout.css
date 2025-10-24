@@ -630,13 +630,19 @@ input:focus, select:focus, textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: #f3f4f6;
   color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  font-size: 20px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .icon-btn:hover { background: #e5e7eb; }
 .add-note-btn { font-weight: 700; line-height: 1; }
