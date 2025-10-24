@@ -158,8 +158,8 @@ function App() {
   const handleReferenceGo = useCallback((text) => {
     const s = (text || "").trim();
     if (!s) return;
-    // Accept formats like "Romans 3:16" or "1 Cor 5:7" (book can have spaces)
-    const m = s.match(/^\s*(.+?)\s+(\d+):(\d+)\s*$/i);
+    // Accept formats like "Romans 3:16", "1 Cor 5:7", or with a space separator: "Romans 3 16"
+    const m = s.match(/^\s*(.+?)\s+(\d+)[\s:](\d+)\s*$/i);
     if (!m) return;
     const bookLabel = resolveBook(m[1]);
     const chapter = Number(m[2]);
@@ -831,6 +831,7 @@ function App() {
                     onRefClick={(b, c, v) => {
                       setSelectedBook(b);
                       setSelectedChapter(c);
+                      setRequestedVerseNumber(v);
                       setPendingGoto({ book: b, chapter: c, verse: v });
                     }}
                   />

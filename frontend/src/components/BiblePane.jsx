@@ -132,19 +132,29 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       const container = contentRef.current;
       const list = listRef.current;
       if (!container || !list) return;
-      const target = list.querySelector(`[data-verse="${d.verse}"]`);
-      if (target) {
-        const offset = target.offsetTop - list.offsetTop;
-        container.scrollTo({ top: Math.max(0, offset - 8), behavior: "smooth" });
-        const num = target.querySelector('.verse-number');
-        if (num) {
-          num.classList.add('flash');
-          setTimeout(() => num.classList.remove('flash'), 1200);
+
+      const tryScroll = (attempt = 0) => {
+        const target = list.querySelector(`[data-verse="${d.verse}"]`);
+        if (target) {
+          const offset = target.offsetTop - list.offsetTop;
+          container.scrollTo({ top: Math.max(0, offset - 8), behavior: "smooth" });
+          const num = target.querySelector('.verse-number');
+          if (num) {
+            num.classList.add('flash');
+            setTimeout(() => num.classList.remove('flash'), 1200);
+          }
+          try {
+            window.dispatchEvent(new CustomEvent("bible-verse-selected", { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: d.verse } }));
+          } catch {}
+          return;
         }
-        try {
-          window.dispatchEvent(new CustomEvent("bible-verse-selected", { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: d.verse } }));
-        } catch {}
-      }
+        if (attempt < 8) {
+          // retry on next frame or after a tiny delay to wait for layout/paint
+          requestAnimationFrame(() => tryScroll(attempt + 1));
+          setTimeout(() => tryScroll(attempt + 1), 16);
+        }
+      };
+      tryScroll(0);
     }
     window.addEventListener("goto-verse", onGoto);
     return () => window.removeEventListener("goto-verse", onGoto);
