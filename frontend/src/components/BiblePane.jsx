@@ -101,9 +101,12 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       const baseHeights = {};
       for (const el of items) {
         const v = Number(el.getAttribute('data-verse'));
+        const prevHeight = el.style.height;
         const prevMinHeight = el.style.minHeight;
+        if (prevHeight) el.style.height = '';
         if (prevMinHeight) el.style.minHeight = '';
         const rect = el.getBoundingClientRect().height;
+        if (prevHeight) el.style.height = prevHeight;
         if (prevMinHeight) el.style.minHeight = prevMinHeight;
         if (v) baseHeights[v] = rect;
       }
@@ -413,7 +416,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
                     <span dangerouslySetInnerHTML={{ __html: verse.text }} />
                   )}
                 </div>
-                {verse.backlinks.length ? (
+                {!syncNotes && verse.backlinks.length ? (
                   <div className="backlinks">
                     Backlinks: {verse.backlinks.length}
                   </div>
