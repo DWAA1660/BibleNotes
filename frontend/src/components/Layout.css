@@ -397,6 +397,12 @@ input:focus, select:focus, textarea:focus {
 .note-card.flash {
   animation: noteFlash 1s ease-out;
 }
+/* Apply same flash to commentary entries and sync rows */
+.entry-card.flash,
+.note-row.flash,
+.entry-row.flash {
+  animation: noteFlash 1s ease-out;
+}
 @keyframes noteFlash {
   0% { box-shadow: 0 0 0 3px rgba(37,99,235,0.25), var(--shadow); }
   60% { box-shadow: 0 0 0 1px rgba(37,99,235,0.15), var(--shadow); }

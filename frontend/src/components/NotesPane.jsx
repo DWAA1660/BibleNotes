@@ -30,7 +30,8 @@ function NotesPane({
   isAuthenticated = false,
   currentUser = null,
   backlinks = [],
-  isLoadingBacklinks = false
+  isLoadingBacklinks = false,
+  syncNotes = false
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -73,6 +74,7 @@ function NotesPane({
   // Scroll to the first note whose range includes the selected verse; if none, pick the next or previous
   const listRef = useRef(null);
   const contentRef = useRef(null);
+  const [extraTopMargin, setExtraTopMargin] = useState(0);
   const scrollToVerseNote = (verseNumber) => {
     const container = contentRef.current;
     const list = listRef.current;
@@ -105,18 +107,74 @@ function NotesPane({
     function onBibleSelect(e) {
       const d = e.detail || {};
       if (!d || !Number.isFinite(d.verse)) return;
-      scrollToVerseNote(Number(d.verse));
+      const verseNumber = Number(d.verse);
+      if (d.source === 'click') {
+        // Highlight only on verse click, no scrolling
+        if (syncNotes) {
+          const row = listRef.current?.querySelector?.(`[data-sync-verse="${verseNumber}"]`);
+          if (row) { try { row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 800); } catch {} }
+        } else {
+          const container = listRef.current;
+          const targetNote = (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes)
+            .find(n => {
+              const sv = Number(n.start_verse) || 0; const ev = Number(n.end_verse) || sv;
+              const lo = Math.min(sv, ev), hi = Math.max(sv, ev);
+              return verseNumber >= lo && verseNumber <= hi;
+            });
+          if (container && targetNote) {
+            const el = container.querySelector(`[data-note-id="${targetNote.id}"]`);
+            if (el) { try { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 800); } catch {} }
+          }
+        }
+        return;
+      }
+      // Scroll-align for scroll/programmatic events
+      if (syncNotes) {
+        const container = contentRef.current; const list = listRef.current;
+        if (!container || !list) return;
+        const el = list.querySelector(`[data-sync-verse="${verseNumber}"]`);
+        if (!el) return;
+        const contRect = container.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const top = container.scrollTop + (elRect.top - contRect.top) - 8;
+        container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      } else {
+        scrollToVerseNote(verseNumber);
+      }
     }
     window.addEventListener("bible-verse-selected", onBibleSelect);
     return () => window.removeEventListener("bible-verse-selected", onBibleSelect);
-  }, [notes]);
+  }, [notes, syncNotes, activeTag]);
 
+  // Do not auto-scroll on selectedVerse changes (clicks should not scroll notes)
+  useEffect(() => {}, [selectedVerse?.id, notes?.length]);
+
+  // Equalize verse row heights with Bible and align tops when syncNotes is on
   useEffect(() => {
-    if (selectedVerse?.verse) {
-      scrollToVerseNote(Number(selectedVerse.verse));
+    if (!syncNotes) return;
+    function onBibleHeights(e) {
+      const d = e.detail || {};
+      const list = listRef.current; const container = contentRef.current;
+      if (!list || !container) return;
+      const items = Array.from(list.querySelectorAll('[data-sync-verse]'));
+      const map = d.heights || {};
+      for (const el of items) {
+        const prev = el.style.minHeight; if (prev) el.style.minHeight = '';
+        const ownH = el.getBoundingClientRect().height;
+        const v = Number(el.getAttribute('data-sync-verse'));
+        const biH = map[v] || 0;
+        const h = Math.max(Math.ceil(ownH), Math.ceil(biH));
+        el.style.minHeight = h ? `${h}px` : '';
+      }
+      const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
+      const target = Number(d.topOffset) || 0;
+      const desired = Math.max(0, Math.round(target - baseTop));
+      if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVerse?.id, notes?.length]);
+    window.addEventListener('bible-verse-heights', onBibleHeights);
+    return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
+  }, [syncNotes, extraTopMargin]);
 
   // Create a new note spanning from selectedVerse to endVerseId (if set)
   const handleSubmit = event => {
@@ -286,6 +344,100 @@ function NotesPane({
 
         {isLoading ? (
           <div className="loading-state">Loading notes...</div>
+        ) : syncNotes ? (
+          <div className="notes-list" ref={listRef} style={{ marginTop: extraTopMargin ? `${extraTopMargin}px` : undefined }}>
+            {verses.map(v => {
+              const filtered = (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes);
+              const verseNotes = filtered.filter(n => Number(n.start_verse) === Number(v.verse));
+              return (
+                <div key={`row-${v.id}`} className="note-row" data-sync-verse={v.verse}>
+                  {verseNotes.map(note => (
+                    <div key={note.id} className="note-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse}>
+                      {editingNoteId === note.id ? (
+                        <form className="notes-form" onSubmit={e => { e.preventDefault(); saveEdit(note); }}>
+                          <input
+                            type="text"
+                            placeholder="Note title"
+                            value={editTitle}
+                            onChange={e => setEditTitle(e.target.value)}
+                          />
+                          <textarea
+                            placeholder="Markdown content"
+                            value={editContent}
+                            onChange={e => setEditContent(e.target.value)}
+                          />
+                          <div className="notes-form-row">
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={editIsPublic}
+                                onChange={e => setEditIsPublic(e.target.checked)}
+                              />
+                              Public
+                            </label>
+                            <select
+                              value={editEndVerseId || ""}
+                              onChange={e => setEditEndVerseId(e.target.value || null)}
+                            >
+                              <option value="">Single verse</option>
+                              {editEndOptions.map(opt => (
+                                <option key={opt.id} value={opt.id}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Tags (comma-separated)"
+                            value={editTags}
+                            onChange={e => setEditTags(e.target.value)}
+                          />
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <button type="submit">Save</button>
+                            <button type="button" onClick={cancelEdit}>Cancel</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          {Array.isArray(note.tags) && note.tags.length ? (
+                            <div className="note-meta" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                              <span>Tags:</span>
+                              <span>{note.tags.map((t, idx) => (
+                                <span key={`${t}-${idx}`}>
+                                  {idx > 0 ? ", " : ""}
+                                  <button type="button" className="note-link" onClick={() => setActiveTag(t)}>{t}</button>
+                                </span>
+                              ))}</span>
+                            </div>
+                          ) : null}
+                          <div className="note-header">
+                            <span className="note-title">{note.title || "Untitled"}</span>
+                            <span className="note-meta">
+                              {note.is_public ? "Public" : "Private"} · {new Date(note.updated_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="note-meta">{formatReference(note)}</div>
+                          {note.owner_display_name && (!currentUser || currentUser.id !== note.owner_id) ? (
+                            <div className="note-meta">By {note.owner_display_name}</div>
+                          ) : null}
+                          <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                          {note.cross_references.length ? (
+                            <div className="note-meta">References: {note.cross_references.join(", ")}</div>
+                          ) : null}
+                          <br></br>
+                          {Array.isArray(note.tags) && note.tags.length ? (
+                            <div className="note-meta">Tags: {note.tags.join(", ")}</div>
+                          ) : null}
+                          <div style={{ marginTop: "0.5rem" }}>
+                            <button type="button" onClick={() => beginEdit(note)}>Edit</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         ) : (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes).length ? (
           <div className="notes-list" ref={listRef}>
             {(activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes).map(note => (
@@ -413,7 +565,8 @@ NotesPane.propTypes = {
     id: PropTypes.number.isRequired
   }),
   backlinks: PropTypes.array,
-  isLoadingBacklinks: PropTypes.bool
+  isLoadingBacklinks: PropTypes.bool,
+  syncNotes: PropTypes.bool
 };
 
 export default NotesPane;

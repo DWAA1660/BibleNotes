@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
 
-function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, selectionMode, onSelectionModeChange, activeTab, onAddNote }) {
+function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, selectionMode, onSelectionModeChange, activeTab, onAddNote, syncNotes }) {
   const stripTags = html => html.replace(/<[^>]+>/g, " ");
   const tokenize = text => stripTags(text || "").trim().split(/\s+/).filter(Boolean);
   const STOPWORDS = new Set([
@@ -48,7 +48,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
   const lastTopVerseRef = useRef(null);
  
 
-  // Measure Bible verse heights and broadcast to Manuscripts for equalization
+  // Measure Bible verse heights and broadcast to panes for equalization
   // - We measure each verse div's natural height (without minHeight)
   // - We compute our base top offset relative to the scroll container
   // - We emit heights and baseTop so Manuscripts can align via a top spacer
@@ -89,7 +89,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
 
   // Measure Bible verse heights and broadcast to Manuscripts for equalization
   useEffect(() => {
-    if (activeTab !== 'manuscripts') return;
+    if (activeTab !== 'manuscripts' && !syncNotes) return;
     function measureAndEmit() {
       const list = listRef.current;
       const container = contentRef.current;
@@ -124,7 +124,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     rAF();
     window.addEventListener('resize', rAF);
     return () => window.removeEventListener('resize', rAF);
-  }, [activeTab, chapterData, selectedVerseId, topSpacerHeight]);
+  }, [activeTab, chapterData, selectedVerseId, topSpacerHeight, syncNotes]);
 
   useEffect(() => {
     function onGoto(e) {
@@ -203,7 +203,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
         if (bestVerse && lastTopVerseRef.current !== bestVerse) {
           lastTopVerseRef.current = bestVerse;
           try {
-            window.dispatchEvent(new CustomEvent('bible-verse-selected', { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: bestVerse } }));
+            window.dispatchEvent(new CustomEvent('bible-verse-selected', { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: bestVerse, source: "scroll" } }));
           } catch {}
         }
       });
@@ -326,7 +326,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
                 onClick={() => {
                   onSelectVerse(verse.id, verse.verse);
                   try {
-                    window.dispatchEvent(new CustomEvent("bible-verse-selected", { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: verse.verse } }));
+                    window.dispatchEvent(new CustomEvent("bible-verse-selected", { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: verse.verse, source: "click" } }));
                   } catch {}
                 }}
               >
@@ -390,7 +390,9 @@ BiblePane.propTypes = {
   isLoading: PropTypes.bool.isRequired,
   selectionMode: PropTypes.oneOf(["verse", "word"]).isRequired,
   onSelectionModeChange: PropTypes.func,
-  activeTab: PropTypes.string
+  activeTab: PropTypes.string,
+  onAddNote: PropTypes.func,
+  syncNotes: PropTypes.bool
 };
 
 BiblePane.defaultProps = {
@@ -399,7 +401,9 @@ BiblePane.defaultProps = {
   isLoading: false,
   selectionMode: "verse",
   onSelectionModeChange: () => {},
-  activeTab: "commentaries"
+  activeTab: "commentaries",
+  onAddNote: null,
+  syncNotes: false
 };
 
 export default BiblePane;

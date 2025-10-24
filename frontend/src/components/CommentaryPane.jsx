@@ -18,7 +18,11 @@ function CommentaryPane({
   onSelectAuthor,
   authorNotes,
   isLoading,
-  selectedVerse
+  selectedVerse,
+  book,
+  chapter,
+  verses,
+  syncNotes
 }) {
   const selectedCanon = selectedVerse?.canonical_id;
   const backlinks = Array.isArray(authorNotes) && selectedCanon
@@ -61,21 +65,33 @@ function CommentaryPane({
     try { localStorage.setItem("commentaryBacklinksExpanded", val ? "1" : "0"); } catch {}
   };
   const listRef = useRef(null);
-  const scrollToVerse = (book, chapter, verse) => {
-    const container = listRef.current;
-    if (!container || !Array.isArray(authorNotes) || !authorNotes.length) return;
-    const target = authorNotes.find(n => n.start_book === book && Number(n.start_chapter) === Number(chapter) && (
-      Number(verse) >= Math.min(Number(n.start_verse) || 0, Number(n.end_verse) || Number(n.start_verse) || 0) &&
-      Number(verse) <= Math.max(Number(n.start_verse) || 0, Number(n.end_verse) || Number(n.start_verse) || 0)
-    ));
-    if (!target) return;
-    const el = container.querySelector(`[data-note-id="${target.id}"]`);
-    if (el && el.scrollIntoView) {
-      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
-      try {
-        el.classList.add('flash');
-        setTimeout(() => el.classList.remove('flash'), 1200);
-      } catch {}
+  const contentRef = useRef(null);
+  const [extraTopMargin, setExtraTopMargin] = useState(0);
+  const scrollToVerse = (b, c, v) => {
+    if (syncNotes) {
+      const container = contentRef.current;
+      const list = listRef.current;
+      if (!container || !list) return;
+      const el = list.querySelector(`[data-sync-verse="${v}"]`);
+      if (!el) return;
+      const contRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const top = container.scrollTop + (elRect.top - contRect.top) - 8;
+      container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      try { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 800); } catch {}
+    } else {
+      const container = listRef.current;
+      if (!container || !Array.isArray(authorNotes) || !authorNotes.length) return;
+      const target = authorNotes.find(n => n.start_book === b && Number(n.start_chapter) === Number(c) && (
+        Number(v) >= Math.min(Number(n.start_verse) || 0, Number(n.end_verse) || Number(n.start_verse) || 0) &&
+        Number(v) <= Math.max(Number(n.start_verse) || 0, Number(n.end_verse) || Number(n.start_verse) || 0)
+      ));
+      if (!target) return;
+      const el = container.querySelector(`[data-note-id="${target.id}"]`);
+      if (el && el.scrollIntoView) {
+        el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+        try { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 800); } catch {}
+      }
     }
   };
 
@@ -84,17 +100,60 @@ function CommentaryPane({
       const d = e.detail || {};
       if (!d || !d.book || !d.chapter || !d.verse) return;
       if (activeTab !== "commentaries") return;
+      if (d.source === 'click') {
+        const vn = Number(d.verse);
+        if (syncNotes) {
+          const row = listRef.current?.querySelector?.(`[data-sync-verse="${vn}"]`);
+          const target = row ? row.querySelector('.entry-card') || row : null;
+          if (target) { try { target.classList.add('flash'); setTimeout(() => target.classList.remove('flash'), 800); } catch {} }
+        } else {
+          const container = listRef.current;
+          const target = authorNotes.find(n => n.start_book === d.book && Number(n.start_chapter) === Number(d.chapter) && Number(n.start_verse) === vn);
+          if (container && target) {
+            const el = container.querySelector(`[data-note-id="${target.id}"]`);
+            if (el) { try { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 800); } catch {} }
+          }
+        }
+        return;
+      }
       scrollToVerse(d.book, d.chapter, d.verse);
     }
     window.addEventListener("bible-verse-selected", onBibleSelect);
     return () => window.removeEventListener("bible-verse-selected", onBibleSelect);
-  }, [authorNotes, activeTab]);
+  }, [authorNotes, activeTab, syncNotes]);
 
   useEffect(() => {
     if (activeTab !== "commentaries") return;
     const b = selectedVerse?.book, c = selectedVerse?.chapter, v = selectedVerse?.verse;
-    if (b && c && v) scrollToVerse(b, c, v);
-  }, [selectedVerse?.id, authorNotes?.length, activeTab]);
+    if (b && c && v && !syncNotes) scrollToVerse(b, c, v);
+  }, [selectedVerse?.id, authorNotes?.length, activeTab, syncNotes]);
+
+  // Equalize verse row heights with Bible and align tops when syncNotes is on
+  useEffect(() => {
+    if (!syncNotes || activeTab !== 'commentaries') return;
+    function onBibleHeights(e) {
+      const d = e.detail || {};
+      const list = listRef.current; const container = contentRef.current;
+      if (!list || !container) return;
+      const items = Array.from(list.querySelectorAll('[data-sync-verse]'));
+      const map = d.heights || {};
+      for (const el of items) {
+        const prev = el.style.minHeight; if (prev) el.style.minHeight = '';
+        const ownH = el.getBoundingClientRect().height;
+        const v = Number(el.getAttribute('data-sync-verse'));
+        const biH = map[v] || 0;
+        const h = Math.max(Math.ceil(ownH), Math.ceil(biH));
+        el.style.minHeight = h ? `${h}px` : '';
+      }
+      const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
+      const target = Number(d.topOffset) || 0;
+      const desired = Math.max(0, Math.round(target - baseTop));
+      if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
+    }
+    window.addEventListener('bible-verse-heights', onBibleHeights);
+    return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
+  }, [syncNotes, activeTab, extraTopMargin]);
 
   return (
     <div className="pane">
@@ -123,7 +182,7 @@ function CommentaryPane({
           </button>
         </div>
       </div>
-      <div className="pane-content">
+      <div className="pane-content" ref={contentRef}>
         {selectedVerse ? (
           <div className="commentary-section">
             <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
@@ -187,15 +246,34 @@ function CommentaryPane({
           {isLoading ? (
             <div className="loading-state">Loading notes…</div>
           ) : authorNotes.length ? (
-            <div className="entries-list" ref={listRef}>
-              {authorNotes.map(note => (
-                <div key={note.id} className="entry-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse} data-book={note.start_book} data-chapter={note.start_chapter}>
-                  <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
-                  <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
-                  <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
-                </div>
-              ))}
-            </div>
+            syncNotes ? (
+              <div className="entries-list" ref={listRef} style={{ marginTop: extraTopMargin ? `${extraTopMargin}px` : undefined }}>
+                {Array.isArray(verses) && verses.length ? verses.map(v => {
+                  const verseNotes = authorNotes.filter(n => Number(n.start_verse) === Number(v.verse));
+                  return (
+                    <div key={`row-${v.id}`} className="entry-row" data-sync-verse={v.verse}>
+                      {verseNotes.map(note => (
+                        <div key={note.id} className="entry-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse} data-book={note.start_book} data-chapter={note.start_chapter}>
+                          <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
+                          <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
+                          <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }) : null}
+              </div>
+            ) : (
+              <div className="entries-list" ref={listRef}>
+                {authorNotes.map(note => (
+                  <div key={note.id} className="entry-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse} data-book={note.start_book} data-chapter={note.start_chapter}>
+                    <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
+                    <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
+                    <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
             <div className="empty-state">Select a commentator to view notes for this chapter.</div>
           )}
@@ -218,7 +296,12 @@ CommentaryPane.propTypes = {
   selectedAuthorId: PropTypes.number,
   onSelectAuthor: PropTypes.func.isRequired,
   authorNotes: PropTypes.array.isRequired,
-  isLoading: PropTypes.bool
+  isLoading: PropTypes.bool,
+  selectedVerse: PropTypes.object,
+  book: PropTypes.string,
+  chapter: PropTypes.number,
+  verses: PropTypes.array,
+  syncNotes: PropTypes.bool
 };
 
 CommentaryPane.defaultProps = {

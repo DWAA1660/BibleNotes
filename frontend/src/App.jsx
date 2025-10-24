@@ -143,6 +143,7 @@ function App() {
   const [concordanceQuery, setConcordanceQuery] = useState("");
   const [backlinks, setBacklinks] = useState([]);
   const [isLoadingBacklinks, setIsLoadingBacklinks] = useState(false);
+  const [syncNotes, setSyncNotes] = useState(() => localStorage.getItem("syncNotes") === "1");
   // Create Note modal state (opened from BiblePane per-verse Add button)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [modalBook, setModalBook] = useState("");
@@ -273,6 +274,10 @@ function App() {
       localStorage.removeItem("rightPaneTab");
     }
   }, [rightPaneTab]);
+
+  useEffect(() => {
+    try { localStorage.setItem("syncNotes", syncNotes ? "1" : "0"); } catch {}
+  }, [syncNotes]);
 
   useEffect(() => {
     if (selectionMode) {
@@ -797,6 +802,7 @@ function App() {
           <button type="submit">Search</button>
         </form>
         <div className="header-actions">
+          <button type="button" className={syncNotes ? "active" : ""} onClick={() => setSyncNotes(v => !v)}>Sync Notes</button>
           {authToken ? (
             <>
               <button type="button" onClick={() => navigate("/profile")}>Profile</button>
@@ -937,6 +943,7 @@ function App() {
                   currentUser={profileData || null}
                   backlinks={backlinks}
                   isLoadingBacklinks={isLoadingBacklinks}
+                  syncNotes={syncNotes}
                 />
                 <BiblePane
                   chapterData={chapterData}
@@ -950,6 +957,7 @@ function App() {
                   onSelectionModeChange={setSelectionMode}
                   activeTab={rightPaneTab}
                   onAddNote={(b, c, v, id) => openCreateNoteModal(b, c, v, id)}
+                  syncNotes={syncNotes}
                 />
                 {rightPaneTab === "commentaries" ? (
                   <CommentaryPane
@@ -959,9 +967,13 @@ function App() {
                     authors={authorSubscriptions}
                     selectedAuthorId={selectedAuthorId}
                     onSelectAuthor={handleSelectAuthor}
-                    authorNotes={authorNotes}
+                    authorNotes={authorNotes.filter(n => n.start_book === selectedBook && n.start_chapter === selectedChapter)}
                     isLoading={isLoadingCommentaries}
                     selectedVerse={selectedVerse}
+                    book={selectedBook}
+                    chapter={selectedChapter}
+                    verses={chapterData ? chapterData.verses : []}
+                    syncNotes={syncNotes}
                   />
                 ) : rightPaneTab === "manuscripts" ? (
                   <ManuscriptsPane
