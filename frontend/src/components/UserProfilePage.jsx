@@ -130,6 +130,13 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
   }, [notes, activeTag, book, chapter, verse, text]);
 
   const uniqueBooks = useMemo(() => Array.from(new Set(notes.map(n => n.start_book))), [notes]);
+  const tagOptions = useMemo(() => {
+    const set = new Set();
+    (notes || []).forEach(n => {
+      if (Array.isArray(n.tags)) n.tags.forEach(t => set.add(t));
+    });
+    return Array.from(set).sort();
+  }, [notes]);
 
   return (
     <div className="profile-page">
@@ -183,11 +190,13 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
       </div>
 
       <div className="filters" style={{ display: "flex", gap: "0.5rem", margin: "1rem 0", alignItems: "center", flexWrap: "wrap" }}>
-        {activeTag ? (
-          <div className="note-meta">
-            Tag filter: <strong>{activeTag}</strong> <button type="button" onClick={() => setActiveTag("")}>×</button>
-          </div>
-        ) : null}
+        <label htmlFor="tagFilter" style={{ whiteSpace: "nowrap" }}>Tag:</label>
+        <select id="tagFilter" value={activeTag} onChange={e => setActiveTag(e.target.value)}>
+          <option value="">All</option>
+          {tagOptions.map(t => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
         <input
           list="books-list"
           placeholder="Book"

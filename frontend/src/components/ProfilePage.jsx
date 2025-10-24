@@ -42,6 +42,10 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
   const [editEndOptions, setEditEndOptions] = useState([]);
   const [editTags, setEditTags] = useState("");
   const [activeTag, setActiveTag] = useState("");
+  const [book, setBook] = useState("");
+  const [chapter, setChapter] = useState("");
+  const [verse, setVerse] = useState("");
+  const [text, setText] = useState("");
 
   const openVerse = (book, chapter, verse, version) => {
     if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse)) return;
@@ -101,7 +105,24 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
   }
 
   const notes = Array.isArray(profile.notes) ? profile.notes : [];
-  const filteredNotes = activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes;
+  const uniqueBooks = Array.from(new Set(notes.map(n => n.start_book)));
+  const tagOptions = (() => {
+    const set = new Set();
+    notes.forEach(n => { if (Array.isArray(n.tags)) n.tags.forEach(t => set.add(t)); });
+    return Array.from(set).sort();
+  })();
+  const filteredNotes = notes.filter(n => {
+    if (activeTag && !(Array.isArray(n.tags) && n.tags.includes(activeTag))) return false;
+    if (book && n.start_book.toLowerCase() !== book.toLowerCase()) return false;
+    if (chapter && String(n.start_chapter) !== String(chapter)) return false;
+    if (verse && String(n.start_verse) !== String(verse)) return false;
+    if (text) {
+      const t = text.toLowerCase();
+      const hay = `${n.title || ""} ${n.content_html || ""}`.toLowerCase();
+      if (!hay.includes(t)) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="profile-page">
@@ -112,6 +133,49 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
           <p>{profile.email}</p>
           <span className="profile-count">Notes: {profile.note_count}</span>
         </div>
+      </div>
+      <div className="filters" style={{ display: "flex", gap: "0.5rem", margin: "1rem 0", alignItems: "center", flexWrap: "wrap" }}>
+        <label htmlFor="tagFilter" style={{ whiteSpace: "nowrap" }}>Tag:</label>
+        <select id="tagFilter" value={activeTag} onChange={e => setActiveTag(e.target.value)}>
+          <option value="">All</option>
+          {tagOptions.map(t => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        <input
+          list="books-list"
+          placeholder="Book"
+          value={book}
+          onChange={e => setBook(e.target.value)}
+          style={{ width: "12rem" }}
+        />
+        <datalist id="books-list">
+          {uniqueBooks.map(b => (
+            <option key={b} value={b} />
+          ))}
+        </datalist>
+        <input
+          type="number"
+          min="1"
+          placeholder="Chapter"
+          value={chapter}
+          onChange={e => setChapter(e.target.value)}
+          style={{ width: "8rem" }}
+        />
+        <input
+          type="number"
+          min="1"
+          placeholder="Verse"
+          value={verse}
+          onChange={e => setVerse(e.target.value)}
+          style={{ width: "8rem" }}
+        />
+        <input
+          type="search"
+          placeholder="Search text"
+          value={text}
+          onChange={e => setText(e.target.value)}
+        />
       </div>
       {isOwnProfile ? (
         <div className="commentary-section" style={{ marginTop: "1rem" }}>
