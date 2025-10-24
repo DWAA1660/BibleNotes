@@ -38,6 +38,17 @@ function NotesPane({
   const [editEndVerseId, setEditEndVerseId] = useState(null);
   const [editEndOptions, setEditEndOptions] = useState([]);
   const [editTags, setEditTags] = useState("");
+  const [activeTag, setActiveTag] = useState("");
+
+  const tagOptions = useMemo(() => {
+    const set = new Set();
+    (notes || []).forEach(n => {
+      if (Array.isArray(n.tags)) {
+        n.tags.forEach(t => set.add(t));
+      }
+    });
+    return Array.from(set).sort();
+  }, [notes]);
 
   const verseOptions = useMemo(() => {
     if (!selectedVerse) {
@@ -214,9 +225,11 @@ function NotesPane({
 
         {isLoading ? (
           <div className="loading-state">Loading notes...</div>
-        ) : notes.length ? (
+        ) : (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes).length ? (
           <div className="notes-list">
-            {notes.map(note => (
+            {(
+              activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes
+            ).map(note => (
               <div key={note.id} className="note-card">
                 {editingNoteId === note.id ? (
                   <form className="notes-form" onSubmit={e => { e.preventDefault(); saveEdit(note); }}>
@@ -263,6 +276,17 @@ function NotesPane({
                   </form>
                 ) : (
                   <>
+                    {Array.isArray(note.tags) && note.tags.length ? (
+                      <div className="note-meta" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                        <span>Tags:</span>
+                        <span>{note.tags.map((t, idx) => (
+                          <span key={`${t}-${idx}`}>
+                            {idx > 0 ? ", " : ""}
+                            <button type="button" className="note-link" onClick={() => setActiveTag(t)}>{t}</button>
+                          </span>
+                        ))}</span>
+                      </div>
+                    ) : null}
                     <div className="note-header">
                       <span className="note-title">{note.title || "Untitled"}</span>
                       <span className="note-meta">
@@ -292,6 +316,22 @@ function NotesPane({
           <div className="empty-state">No notes yet for this chapter.</div>
         )}
       </div>
+      {tagOptions.length ? (
+        <div className="pane-footer" style={{ padding: "0.5rem" }}>
+          <div className="notes-form-row" style={{ alignItems: "center" }}>
+            <label htmlFor="tagFilter">Filter by tag:</label>
+            <select id="tagFilter" value={activeTag} onChange={e => setActiveTag(e.target.value)}>
+              <option value="">All</option>
+              {tagOptions.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            {activeTag ? (
+              <button type="button" onClick={() => setActiveTag("")}>Clear</button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

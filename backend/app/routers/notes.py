@@ -528,6 +528,10 @@ def update_note(
             raise HTTPException(status_code=400, detail="End verse must be after start verse")
         note.end_verse_id = payload.end_verse_id
 
+    # Update tags if provided
+    if payload.tags is not None:
+        note.tags_text = _normalize_tags(payload.tags)
+
     session.add(note)
     session.commit()
     session.refresh(note)

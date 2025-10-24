@@ -604,7 +604,8 @@ function App() {
         version_code: selectedVersion,
         start_verse_id: selectedVerseId,
         end_verse_id: end,
-        is_public: payload.isPublic
+        is_public: payload.isPublic,
+        tags: payload.tags
       });
       if (authToken) {
         const my = await api.fetchMyNotes();
