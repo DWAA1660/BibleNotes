@@ -162,9 +162,12 @@ function NotesPane({
       const heights = {};
       for (const el of rows) {
         const v = Number(el.getAttribute('data-sync-verse')) || 0;
-        const prev = el.style.minHeight; if (prev) el.style.minHeight = '';
+        const prevH = el.style.height; const prevMin = el.style.minHeight;
+        if (prevH) el.style.height = '';
+        if (prevMin) el.style.minHeight = '';
         const h = el.getBoundingClientRect().height;
-        if (prev) el.style.minHeight = prev;
+        if (prevH) el.style.height = prevH;
+        if (prevMin) el.style.minHeight = prevMin;
         if (v) heights[v] = h;
       }
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
@@ -203,7 +206,8 @@ function NotesPane({
       for (const el of items) {
         const v = Number(el.getAttribute('data-sync-verse'));
         const h = Math.ceil(map[v] || 0);
-        el.style.minHeight = h ? `${h}px` : '';
+        el.style.minHeight = '';
+        el.style.height = h ? `${h}px` : '';
       }
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));

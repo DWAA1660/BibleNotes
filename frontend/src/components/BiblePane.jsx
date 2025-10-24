@@ -123,15 +123,17 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
         const ci = commMap[v] || 0;
         outHeights[v] = Math.max(bi, ni, ci);
       }
-      // Apply minHeight to our own rows to equalize with other panes
+      // Apply fixed height to our own rows to equalize with other panes
       for (const el of items) {
         const v = Number(el.getAttribute('data-verse'));
         if (!v) continue;
         const h = outHeights[v] || 0;
         if ((activeTab === 'manuscripts' || syncNotes) && h) {
-          el.style.minHeight = `${Math.ceil(h)}px`;
+          el.style.minHeight = '';
+          el.style.height = `${Math.ceil(h)}px`;
         } else if (!(activeTab === 'manuscripts' || syncNotes)) {
           el.style.minHeight = '';
+          el.style.height = '';
         }
       }
       // Emit only if changed enough to matter
