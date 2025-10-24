@@ -129,15 +129,21 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     function onGoto(e) {
       const d = e.detail || {};
       if (!chapterData || d.book !== chapterData.book || d.chapter !== chapterData.chapter) return;
-      const container = contentRef.current;
-      const list = listRef.current;
-      if (!container || !list) return;
 
       const tryScroll = (attempt = 0) => {
+        const container = contentRef.current;
+        const list = listRef.current;
+        if (!container || !list) {
+          if (attempt < 12) {
+            requestAnimationFrame(() => tryScroll(attempt + 1));
+            setTimeout(() => tryScroll(attempt + 1), 40);
+          }
+          return;
+        }
         const target = list.querySelector(`[data-verse="${d.verse}"]`);
         if (target) {
-          const offset = target.offsetTop - list.offsetTop;
-          container.scrollTo({ top: Math.max(0, offset - 8), behavior: "smooth" });
+          // More robust: use scrollIntoView on the target inside the scrollable container
+          target.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
           const num = target.querySelector('.verse-number');
           if (num) {
             num.classList.add('flash');
@@ -148,10 +154,10 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
           } catch {}
           return;
         }
-        if (attempt < 8) {
+        if (attempt < 12) {
           // retry on next frame or after a tiny delay to wait for layout/paint
           requestAnimationFrame(() => tryScroll(attempt + 1));
-          setTimeout(() => tryScroll(attempt + 1), 16);
+          setTimeout(() => tryScroll(attempt + 1), 40);
         }
       };
       tryScroll(0);
@@ -159,6 +165,34 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     window.addEventListener("goto-verse", onGoto);
     return () => window.removeEventListener("goto-verse", onGoto);
   }, [chapterData]);
+
+  // Fallback: whenever selectedVerseId changes, ensure the verse is scrolled into view
+  useEffect(() => {
+    if (!chapterData || !selectedVerseId) return;
+    const found = chapterData.verses.find(v => v.id === selectedVerseId);
+    if (!found) return;
+    const container = contentRef.current;
+    const list = listRef.current;
+    if (!container || !list) return;
+
+    const tryScroll = (attempt = 0) => {
+      const target = list.querySelector(`[data-verse="${found.verse}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+        const num = target.querySelector('.verse-number');
+        if (num) {
+          num.classList.add('flash');
+          setTimeout(() => num.classList.remove('flash'), 1200);
+        }
+        return;
+      }
+      if (attempt < 12) {
+        requestAnimationFrame(() => tryScroll(attempt + 1));
+        setTimeout(() => tryScroll(attempt + 1), 40);
+      }
+    };
+    tryScroll(0);
+  }, [chapterData?.book, chapterData?.chapter, selectedVerseId]);
 
   // Apply min-heights from Manuscripts pane to align rows vertically
   useEffect(() => {

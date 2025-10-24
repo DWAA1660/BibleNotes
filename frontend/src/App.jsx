@@ -295,7 +295,15 @@ function App() {
     const verseObj = chapterData.verses.find(v => v.verse === pendingGoto.verse);
     if (verseObj) {
       setSelectedVerseId(verseObj.id);
-      window.dispatchEvent(new CustomEvent("goto-verse", { detail: { book: pendingGoto.book, chapter: pendingGoto.chapter, verse: pendingGoto.verse } }));
+      const detail = { book: pendingGoto.book, chapter: pendingGoto.chapter, verse: pendingGoto.verse };
+      // Dispatch now and also on next frames to ensure listeners and DOM are ready
+      try { window.dispatchEvent(new CustomEvent("goto-verse", { detail })); } catch {}
+      requestAnimationFrame(() => {
+        try { window.dispatchEvent(new CustomEvent("goto-verse", { detail })); } catch {}
+      });
+      setTimeout(() => {
+        try { window.dispatchEvent(new CustomEvent("goto-verse", { detail })); } catch {}
+      }, 50);
     }
     setPendingGoto(null);
   }, [pendingGoto, chapterData]);
