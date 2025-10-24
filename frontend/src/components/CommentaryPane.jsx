@@ -155,6 +155,25 @@ function CommentaryPane({
       const target = Math.max(0, (Number(d.topOffset) || 0));
       const desired = Math.round(target - baseTop);
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
+      requestAnimationFrame(() => {
+        try {
+          const rows = Array.from(list.querySelectorAll('[data-sync-verse]'));
+          const heights = {};
+          for (const el of rows) {
+            const v = Number(el.getAttribute('data-sync-verse')) || 0;
+            const prevH = el.style.height; const prevMin = el.style.minHeight;
+            if (prevH) el.style.height = ''; if (prevMin) el.style.minHeight = '';
+            const h = el.getBoundingClientRect().height;
+            if (prevH) el.style.height = prevH; if (prevMin) el.style.minHeight = prevMin;
+            if (v) heights[v] = h;
+          }
+          const raw = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+          const base = Math.max(0, raw - (extraTopMargin || 0));
+          const headerH = (controlsRef.current && controlsRef.current.offsetHeight) || 0;
+          window.dispatchEvent(new CustomEvent('commentary-verse-heights', { detail: { book, chapter, heights, topOffset: base + (extraTopMargin || 0) + headerH, headerOffset: headerH } }));
+          window.dispatchEvent(new Event('request-bible-verse-heights'));
+        } catch {}
+      });
     }
     window.addEventListener('bible-verse-heights', onBibleHeights);
     return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
@@ -198,6 +217,17 @@ function CommentaryPane({
       try { if (ro) ro.disconnect(); } catch {}
     };
   }, [syncNotes, activeTab, book, chapter, verses, authorNotes, extraTopMargin, sortedBacklinks.length, JSON.stringify(openBacklinks)]);
+
+  useEffect(() => {
+    if (!syncNotes || activeTab !== 'commentaries') return;
+    const kick = () => {
+      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
+      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
+    };
+    const t1 = setTimeout(kick, 0);
+    const t2 = setTimeout(kick, 60);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [syncNotes, activeTab, selectedAuthorId, book, chapter, authorNotes?.length, verses?.length]);
 
   return (
     <div className="pane">

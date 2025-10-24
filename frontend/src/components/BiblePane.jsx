@@ -156,7 +156,12 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
     rAF();
     window.addEventListener('resize', rAF);
-    return () => window.removeEventListener('resize', rAF);
+    const onRequest = () => rAF();
+    window.addEventListener('request-bible-verse-heights', onRequest);
+    return () => {
+      window.removeEventListener('resize', rAF);
+      window.removeEventListener('request-bible-verse-heights', onRequest);
+    };
   }, [activeTab, chapterData, selectedVerseId, topSpacerHeight, commentarySpacer, syncNotes, heightsVersion]);
 
   // Listen for Notes/Commentary height measurements during Sync Notes

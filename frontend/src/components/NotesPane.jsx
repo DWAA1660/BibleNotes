@@ -190,6 +190,8 @@ function NotesPane({
     const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
     rAF();
     window.addEventListener('resize', rAF);
+    const onRequest = () => rAF();
+    window.addEventListener('request-notes-verse-heights', onRequest);
     let ro;
     try {
       if (window.ResizeObserver) {
@@ -200,6 +202,7 @@ function NotesPane({
     } catch {}
     return () => {
       window.removeEventListener('resize', rAF);
+      window.removeEventListener('request-notes-verse-heights', onRequest);
       try { if (ro) ro.disconnect(); } catch {}
     };
   }, [syncNotes, book, chapter, verses, notes, activeTag, extraTopMargin, JSON.stringify(openBacklinks)]);
