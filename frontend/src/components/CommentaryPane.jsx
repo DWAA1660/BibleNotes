@@ -25,7 +25,13 @@ function CommentaryPane({
   verses,
   syncNotes
 }) {
+  // Backlinks separation (IMPORTANT):
+  // - authorNotes: notes limited to the CURRENT CHAPTER for display in the list below.
+  // - allAuthorNotes: FULL set of this commentator's notes (all books/chapters).
+  //   We use allAuthorNotes to compute backlinks so cross-chapter references are included.
+  //   Do NOT compute backlinks from authorNotes, or counts will be wrong.
   const selectedCanon = selectedVerse?.canonical_id;
+  // Compute backlinks from the full set (allAuthorNotes), not chapter-filtered authorNotes
   const backlinks = Array.isArray(allAuthorNotes) && selectedCanon
     ? allAuthorNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(selectedCanon))
     : [];
@@ -219,7 +225,10 @@ function CommentaryPane({
         </div>
       </div>
       <div className="pane-content top-gap" ref={contentRef}>
-        <div className="commentary-controls">
+        <div
+          className="commentary-controls"
+          style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--panel-bg, #fff)', padding: '0.5rem 0', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}
+        >
           <label htmlFor="commSelect">Select commentator:</label>
           <select
             id="commSelect"
@@ -247,6 +256,8 @@ function CommentaryPane({
                 {Array.isArray(verses) && verses.length ? verses.map(v => {
                   const verseNotes = authorNotes.filter(n => Number(n.start_verse) === Number(v.verse));
                   const canon = v.canonical_id;
+                  // Use the FULL set for backlinks so we include cross-chapter links.
+                  // Fallback to authorNotes only if allAuthorNotes is somehow unavailable.
                   const allNotes = Array.isArray(allAuthorNotes) ? allAuthorNotes : authorNotes;
                   const verseBacklinks = Array.isArray(allNotes) && canon
                     ? allNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(canon))

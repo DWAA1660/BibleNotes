@@ -4,6 +4,10 @@
 // - Allows creating and editing notes, including setting tags (comma-separated).
 // - Tags are persisted to the backend and displayed per-note; a simple footer dropdown
 //   allows client-side filtering by a single tag.
+// - Backlinks separation (IMPORTANT):
+//   In syncNotes mode, per-verse backlinks are read from the chapter payload (v.backlinks)
+//   but filtered to ONLY include backlinks authored by the current user. Commentary backlinks
+//   (from other authors) are intentionally excluded here and displayed on the CommentaryPane.
 import PropTypes from "prop-types";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -197,6 +201,8 @@ function NotesPane({
       try { if (ro) ro.disconnect(); } catch {}
     };
   }, [syncNotes, book, chapter, verses, notes, activeTag, extraTopMargin, JSON.stringify(openBacklinks)]);
+  // Note: We depend on openBacklinks (stringified) so verse-row height re-measures
+  // when a backlinks section is expanded/collapsed, keeping Bible alignment accurate.
 
   // Equalize verse row heights with Bible and align tops when syncNotes is on
   useEffect(() => {
@@ -223,6 +229,22 @@ function NotesPane({
     window.addEventListener('bible-verse-heights', onBibleHeights);
     return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
   }, [syncNotes, extraTopMargin]);
+
+  useEffect(() => {
+    if (!syncNotes) return;
+    function onCommTop(e) {
+      const d = e.detail || {};
+      if (d.book !== book || Number(d.chapter) !== Number(chapter)) return;
+      const list = listRef.current; const container = contentRef.current;
+      if (!list || !container) return;
+      const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
+      const desired = Math.max(0, Math.round((Number(d.topOffset) || 0) - baseTop));
+      if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
+    }
+    window.addEventListener('commentary-verse-heights', onCommTop);
+    return () => window.removeEventListener('commentary-verse-heights', onCommTop);
+  }, [syncNotes, book, chapter, extraTopMargin]);
 
   // Create a new note spanning from selectedVerse to endVerseId (if set)
   const handleSubmit = event => {
@@ -311,6 +333,13 @@ function NotesPane({
         ) : syncNotes ? (
           <div className="notes-list" ref={listRef} style={{ marginTop: extraTopMargin ? `${extraTopMargin}px` : undefined }}>
             {verses.map(v => {
+              // Backlinks separation (IMPORTANT):
+              // - NotesPane shows ONLY backlinks that come from the logged-in user's notes.
+              // - Commentary backlinks (from other authors) are intentionally EXCLUDED here.
+              //   Those are displayed in the CommentaryPane.
+              //
+              // We read per-verse backlinks from the chapter payload (v.backlinks)
+              // and filter by note_owner_id === current user's id.
               const myUserId = (currentUser && Number(currentUser.id)) || (Array.isArray(notes) && notes.length ? Number(notes[0].owner_id) : null);
               const filtered = (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes);
               const verseNotes = filtered.filter(n => Number(n.start_verse) === Number(v.verse));

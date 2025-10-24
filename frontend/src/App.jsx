@@ -969,7 +969,10 @@ function App() {
                     authors={authorSubscriptions}
                     selectedAuthorId={selectedAuthorId}
                     onSelectAuthor={handleSelectAuthor}
+                    // Chapter-scoped notes for DISPLAY ONLY (current book/chapter)
                     authorNotes={authorNotes.filter(n => n.start_book === selectedBook && n.start_chapter === selectedChapter)}
+                    // Full note set for BACKLINKS (must include cross-chapter references)
+                    // IMPORTANT: Do NOT compute backlinks from authorNotes or counts will be wrong.
                     allAuthorNotes={authorNotes}
                     isLoading={isLoadingCommentaries}
                     selectedVerse={selectedVerse}
