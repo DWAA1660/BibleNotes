@@ -72,6 +72,7 @@ function CommentaryPane({
   };
   const listRef = useRef(null);
   const contentRef = useRef(null);
+  const controlsRef = useRef(null);
   const [extraTopMargin, setExtraTopMargin] = useState(0);
   const scrollToVerse = (b, c, v) => {
     if (syncNotes) {
@@ -151,7 +152,8 @@ function CommentaryPane({
       }
       const rawTop = list.getBoundingClientRect().top - container.getBoundingClientRect().top;
       const baseTop = rawTop - (extraTopMargin || 0);
-      const target = Number(d.topOffset) || 0;
+      const headerH = (controlsRef.current && controlsRef.current.offsetHeight) || 0;
+      const target = Math.max(0, (Number(d.topOffset) || 0) - headerH);
       const desired = Math.round(target - baseTop);
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
@@ -178,7 +180,8 @@ function CommentaryPane({
       }
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
-      try { window.dispatchEvent(new CustomEvent('commentary-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) } })); } catch {}
+      const headerH = (controlsRef.current && controlsRef.current.offsetHeight) || 0;
+      try { window.dispatchEvent(new CustomEvent('commentary-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) + headerH } })); } catch {}
     }
     const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
     rAF();
@@ -224,29 +227,28 @@ function CommentaryPane({
           </button>
         </div>
       </div>
-      <div className="pane-content top-gap" ref={contentRef}>
-        <div
-          className="commentary-controls"
-          style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}
+      <div
+        className="commentary-controls"
+        style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}
+      >
+        <label htmlFor="commSelect">Select commentator:</label>
+        <select
+          id="commSelect"
+          value={selectedAuthorId ?? ""}
+          onChange={event => onSelectAuthor(event.target.value === "" ? null : Number(event.target.value))}
         >
-          <label htmlFor="commSelect">Select commentator:</label>
-          <select
-            id="commSelect"
-            value={selectedAuthorId ?? ""}
-            onChange={event => onSelectAuthor(event.target.value === "" ? null : Number(event.target.value))}
-          >
-            <option value="">Choose…</option>
-            {authors.map(a => (
-              <option key={a.author_id} value={a.author_id}>
-                {a.author_display_name || "Unknown"}
-              </option>
-            ))}
-          </select>
-          {selectedAuthorId ? (
-            <button type="button" aria-label="Clear selection" onClick={() => onSelectAuthor(null)}>×</button>
-          ) : null}
-        </div>
-
+          <option value="">Choose…</option>
+          {authors.map(a => (
+            <option key={a.author_id} value={a.author_id}>
+              {a.author_display_name || "Unknown"}
+            </option>
+          ))}
+        </select>
+        {selectedAuthorId ? (
+          <button type="button" aria-label="Clear selection" onClick={() => onSelectAuthor(null)}>×</button>
+        ) : null}
+      </div>
+      <div className="pane-content top-gap" ref={contentRef}>
         <div className="commentary-section">
           {isLoading ? (
             <div className="loading-state">Loading notes…</div>
