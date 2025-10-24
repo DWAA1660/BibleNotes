@@ -6,6 +6,13 @@ export default defineConfig({
   preview: {
     host: true,
     port: 3170,
+    proxy: {
+      "/api": {
+        target: "http://node67.lunes.host:3182",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
     allowedHosts: true,       // allow any host
   },
 })
