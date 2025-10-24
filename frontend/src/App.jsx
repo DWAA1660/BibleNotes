@@ -259,13 +259,33 @@ function App() {
     function onOpenVerse(e) {
       const d = e.detail || {};
       if (!d.book || !d.chapter || !d.verse) return;
+
+      const chapter = Number(d.chapter);
+      const verse = Number(d.verse);
+      const version = d.version || selectedVersion || "";
+
+      if (version && version !== selectedVersion) {
+        setSelectedVersion(version);
+      }
+
       setSelectedBook(d.book);
-      setSelectedChapter(Number(d.chapter));
-      setPendingGoto({ book: d.book, chapter: Number(d.chapter), verse: Number(d.verse) });
+      setSelectedChapter(chapter);
+      setRequestedVerseNumber(verse);
+      setPendingGoto({ book: d.book, chapter, verse });
+
+      if (location.pathname !== "/") {
+        const params = new URLSearchParams();
+        if (version) params.set("version", version);
+        params.set("book", d.book);
+        params.set("chapter", String(chapter));
+        params.set("verse", String(verse));
+        const search = params.toString();
+        navigate({ pathname: "/", search: search ? `?${search}` : "" });
+      }
     }
     window.addEventListener("open-verse", onOpenVerse);
     return () => window.removeEventListener("open-verse", onOpenVerse);
-  }, []);
+  }, [location.pathname, navigate, selectedVersion]);
 
   useEffect(() => {
     if (!selectedVersion || !selectedBook || !selectedChapter) {
