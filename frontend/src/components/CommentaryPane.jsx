@@ -227,7 +227,7 @@ function CommentaryPane({
       <div className="pane-content top-gap" ref={contentRef}>
         <div
           className="commentary-controls"
-          style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--panel-bg, #fff)', padding: '0.5rem 0', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}
+          style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}
         >
           <label htmlFor="commSelect">Select commentator:</label>
           <select
