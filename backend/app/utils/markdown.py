@@ -1,7 +1,7 @@
 from markdown_it import MarkdownIt
 from bleach import clean
 import re
-from .reference_parser import REFERENCE_REGEX, PAREN_CONTENT
+from .reference_parser import PAREN_CONTENT, tokenize_reference_text
 
 md = MarkdownIt("commonmark")
 
@@ -18,20 +18,23 @@ def _linkify_parenthetical_refs(raw: str) -> str:
         if not inner:
             return m.group(0)
 
-        # Replace each scripture reference inside with an anchor
-        def repl_ref(rm: re.Match) -> str:
-            book = rm.group('book')
-            chapter = rm.group('chapter')
-            verse = rm.group('verse')
-            endv = rm.group('endverse')
-            text = rm.group(0)
-            title = f"{book} {chapter}:{verse}" if verse else f"{book} {chapter}"
-            if endv:
-                title = f"{book} {chapter}:{verse}-{endv}"
-            # Use rel="ref" and title to carry the reference; href is a no-op
-            return f"<a href=\"#\" rel=\"ref\" title=\"{title}\">{text}</a>"
+        pieces = []
+        for text, ref in tokenize_reference_text(inner):
+            if not ref:
+                pieces.append(text)
+                continue
 
-        linked = REFERENCE_REGEX.sub(repl_ref, inner)
+            verse_part = None
+            if ref.has_explicit_verse:
+                verse_part = (
+                    f"{ref.verse_start}"
+                    if ref.verse_start == ref.verse_end
+                    else f"{ref.verse_start}-{ref.verse_end}"
+                )
+            title = f"{ref.book} {ref.chapter}:{verse_part}" if verse_part else f"{ref.book} {ref.chapter}"
+            pieces.append(f"<a href=\"#\" rel=\"ref\" title=\"{title}\">{text}</a>")
+
+        linked = "".join(pieces)
         return f"({linked})"
 
     return PAREN_CONTENT.sub(repl_paren, raw)
