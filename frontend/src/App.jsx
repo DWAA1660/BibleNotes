@@ -440,6 +440,32 @@ function App() {
     } catch {}
   };
 
+  const handleVersionChange = useCallback(value => {
+    setSelectedVersion(value);
+    setSelectedVerseId(null);
+    setRequestedVerseNumber(null);
+  }, [setSelectedVersion, setSelectedVerseId, setRequestedVerseNumber]);
+
+  const handleBookChange = useCallback(value => {
+    setSelectedBook(value);
+    setSelectedChapter(1);
+    setSelectedVerseId(null);
+    setRequestedVerseNumber(null);
+  }, [setSelectedBook, setSelectedChapter, setSelectedVerseId, setRequestedVerseNumber]);
+
+  const handleChapterChange = useCallback(value => {
+    setSelectedChapter(value);
+    setSelectedVerseId(null);
+    setRequestedVerseNumber(null);
+  }, [setSelectedChapter, setSelectedVerseId, setRequestedVerseNumber]);
+
+  const handleVerseChange = useCallback(value => {
+    setRequestedVerseNumber(value);
+    if (value == null) {
+      setSelectedVerseId(null);
+    }
+  }, [setRequestedVerseNumber, setSelectedVerseId]);
+
   const handleSelectAsCommentator = async authorId => {
     await handleSubscribeAuthor(authorId);
     await handleSelectAuthor(authorId);
@@ -632,32 +658,14 @@ function App() {
         <VersionSelector
           versions={versions}
           selectedVersion={selectedVersion}
-          onVersionChange={useCallback(value => {
-            setSelectedVersion(value);
-            setSelectedVerseId(null);
-            setRequestedVerseNumber(null);
-          }, [])}
+          onVersionChange={handleVersionChange}
           books={BOOKS}
           selectedBook={selectedBook}
-          onBookChange={useCallback(value => {
-            setSelectedBook(value);
-            setSelectedChapter(1);
-            setSelectedVerseId(null);
-            setRequestedVerseNumber(null);
-          }, [])}
+          onBookChange={handleBookChange}
           chapter={selectedChapter}
-          onChapterChange={useCallback(value => {
-            setSelectedChapter(value);
-            setSelectedVerseId(null);
-            setRequestedVerseNumber(null);
-          }, [])}
+          onChapterChange={handleChapterChange}
           verse={requestedVerseNumber}
-          onVerseChange={useCallback(value => {
-            setRequestedVerseNumber(value);
-            if (value == null) {
-              setSelectedVerseId(null);
-            }
-          }, [])}
+          onVerseChange={handleVerseChange}
           loadingChapter={isLoadingChapter}
         />
       ) : (
