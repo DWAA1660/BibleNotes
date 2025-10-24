@@ -82,7 +82,8 @@ class NoteBase(BaseModel):
 
 
 class NoteCreate(NoteBase):
-    pass
+    # Optional comma-separated tags input
+    tags: Optional[str] = None
 
 
 class NoteUpdate(BaseModel):
@@ -90,6 +91,8 @@ class NoteUpdate(BaseModel):
     content_markdown: Optional[str] = None
     is_public: Optional[bool] = None
     end_verse_id: Optional[int] = None
+    # Optional comma-separated tags input
+    tags: Optional[str] = None
 
 
 class NoteRead(NoteBase):
@@ -107,6 +110,7 @@ class NoteRead(NoteBase):
     updated_at: datetime
     cross_references: List[str] = Field(default_factory=list)
     verses_text: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
 
     class Config:
         orm_mode = True

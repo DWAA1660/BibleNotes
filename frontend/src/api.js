@@ -75,8 +75,9 @@ export const api = {
     const suffix = term ? `?query=${encodeURIComponent(term)}` : "";
     return request(`/notes/authors/public${suffix}`);
   },
-  fetchAuthorNotes(authorId) {
-    return request(`/notes/authors/${authorId}`);
+  fetchAuthorNotes(authorId, tag) {
+    const suffix = tag ? `?tag=${encodeURIComponent(tag)}` : "";
+    return request(`/notes/authors/${authorId}${suffix}`);
   },
   fetchNoteSubscriptions() {
     return request("/notes/subscriptions");
@@ -161,8 +162,9 @@ export const api = {
       method: "DELETE"
     });
   },
-  fetchMyProfile() {
-    return request("/users/me/profile");
+  fetchMyProfile(tag) {
+    const suffix = tag ? `?tag=${encodeURIComponent(tag)}` : "";
+    return request(`/users/me/profile${suffix}`);
   },
   searchUsers(query) {
     const term = query?.trim();

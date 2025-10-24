@@ -41,6 +41,7 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
   const [authorName, setAuthorName] = useState("");
   const [notes, setNotes] = useState([]);
   const [followList, setFollowList] = useState([]);
+  const [activeTag, setActiveTag] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +116,7 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
 
   const filtered = useMemo(() => {
     return notes.filter(n => {
+      if (activeTag && !(Array.isArray(n.tags) && n.tags.includes(activeTag))) return false;
       if (book && n.start_book.toLowerCase() !== book.toLowerCase()) return false;
       if (chapter && String(n.start_chapter) !== String(chapter)) return false;
       if (verse && String(n.start_verse) !== String(verse)) return false;
@@ -125,7 +127,7 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
       }
       return true;
     });
-  }, [notes, book, chapter, verse, text]);
+  }, [notes, activeTag, book, chapter, verse, text]);
 
   const uniqueBooks = useMemo(() => Array.from(new Set(notes.map(n => n.start_book))), [notes]);
 
@@ -180,7 +182,12 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
         )}
       </div>
 
-      <div className="filters" style={{ display: "flex", gap: "0.5rem", margin: "1rem 0" }}>
+      <div className="filters" style={{ display: "flex", gap: "0.5rem", margin: "1rem 0", alignItems: "center", flexWrap: "wrap" }}>
+        {activeTag ? (
+          <div className="note-meta">
+            Tag filter: <strong>{activeTag}</strong> <button type="button" onClick={() => setActiveTag("")}>×</button>
+          </div>
+        ) : null}
         <input
           list="books-list"
           placeholder="Book"
@@ -239,6 +246,16 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
                 </span>
               </header>
               <div className="profile-note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+              {Array.isArray(note.tags) && note.tags.length ? (
+                <div className="note-meta">
+                  Tags: {note.tags.map((t, idx) => (
+                    <span key={`${t}-${idx}`}>
+                      {idx > 0 ? ", " : ""}
+                      <button type="button" className="note-link" onClick={() => setActiveTag(t)}>{t}</button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               {note.cross_references && note.cross_references.length ? (
                 <div className="note-meta">
                   References:{" "}

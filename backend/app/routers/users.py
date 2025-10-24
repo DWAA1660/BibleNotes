@@ -32,6 +32,7 @@ def _default_avatar_url(user: User) -> str:
 def read_my_profile(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tag: str | None = None,
 ) -> UserProfileRead:
     notes = session.exec(
         select(Note)
@@ -44,6 +45,17 @@ def read_my_profile(
         .where(Note.owner_id == current_user.id)
         .order_by(Note.created_at.desc())
     ).all()
+
+    if tag:
+        t = tag.strip().lower()
+        if t:
+            notes = [
+                n for n in notes
+                if (n.tags_text == t)
+                or n.tags_text.startswith(f"{t},")
+                or f",{t}," in n.tags_text
+                or n.tags_text.endswith(f",{t}")
+            ]
 
     serialized_notes = [serialize_note(session, note) for note in notes]
 

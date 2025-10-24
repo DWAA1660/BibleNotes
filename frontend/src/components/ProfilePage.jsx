@@ -40,6 +40,8 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
   const [editIsPublic, setEditIsPublic] = useState(false);
   const [editEndVerseId, setEditEndVerseId] = useState(null);
   const [editEndOptions, setEditEndOptions] = useState([]);
+  const [editTags, setEditTags] = useState("");
+  const [activeTag, setActiveTag] = useState("");
 
   const openVerse = (book, chapter, verse, version) => {
     if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse)) return;
@@ -54,6 +56,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
     setEditContent(note.content_markdown || "");
     setEditIsPublic(Boolean(note.is_public));
     setEditEndVerseId(note.end_verse_id);
+    setEditTags(Array.isArray(note.tags) && note.tags.length ? note.tags.join(", ") : "");
     try {
       const chapter = await api.fetchChapter(note.version_code, note.start_book, note.start_chapter);
       const startIdx = chapter.verses.findIndex(v => v.id === note.start_verse_id);
@@ -71,6 +74,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
     setEditIsPublic(false);
     setEditEndVerseId(null);
     setEditEndOptions([]);
+    setEditTags("");
   };
 
   const saveEdit = async original => {
@@ -79,6 +83,8 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
     if ((editContent || "") !== (original.content_markdown || "")) payload.content_markdown = editContent;
     if (Boolean(editIsPublic) !== Boolean(original.is_public)) payload.is_public = editIsPublic;
     if (Number(editEndVerseId) !== Number(original.end_verse_id)) payload.end_verse_id = Number(editEndVerseId);
+    const originalTags = Array.isArray(original.tags) ? original.tags.join(", ") : "";
+    if ((editTags || "") !== originalTags) payload.tags = editTags;
     if (Object.keys(payload).length === 0) {
       cancelEdit();
       return;
@@ -95,6 +101,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
   }
 
   const notes = Array.isArray(profile.notes) ? profile.notes : [];
+  const filteredNotes = activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes;
 
   return (
     <div className="profile-page">
@@ -127,8 +134,13 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
         </div>
       ) : null}
       <div className="profile-notes">
-        {notes.length ? (
-          notes.map(note => (
+        {activeTag ? (
+          <div className="note-meta" style={{ marginBottom: "0.5rem" }}>
+            Filter: <strong>{activeTag}</strong> <button type="button" onClick={() => setActiveTag("")}>×</button>
+          </div>
+        ) : null}
+        {filteredNotes.length ? (
+          filteredNotes.map(note => (
             <article key={note.id} className="profile-note">
               {editingId === note.id ? (
                 <form className="notes-form" onSubmit={e => { e.preventDefault(); saveEdit(note); }}>
@@ -162,6 +174,12 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
                       ))}
                     </select>
                   </div>
+                  <input
+                    type="text"
+                    placeholder="Tags (comma-separated)"
+                    value={editTags}
+                    onChange={e => setEditTags(e.target.value)}
+                  />
                   <div style={{ display: "flex", gap: "0.5rem" }}>
                     <button type="submit">Save</button>
                     <button type="button" onClick={cancelEdit}>Cancel</button>
@@ -183,6 +201,16 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
                     </span>
                   </header>
                   <div className="profile-note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                  {Array.isArray(note.tags) && note.tags.length ? (
+                    <div className="note-meta">
+                      Tags: {note.tags.map((t, idx) => (
+                        <span key={`${t}-${idx}`}>
+                          {idx > 0 ? ", " : ""}
+                          <button type="button" className="note-link" onClick={() => setActiveTag(t)}>{t}</button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {note.cross_references && note.cross_references.length ? (
                     <div className="note-meta">
                       References:{" "}

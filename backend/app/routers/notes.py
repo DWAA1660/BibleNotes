@@ -1,3 +1,20 @@
+    if payload.tags is not None:
+        note.tags_text = _normalize_tags(payload.tags)
+
+def _normalize_tags(raw: Optional[str]) -> str:
+    if not raw:
+        return ""
+    parts = [p.strip().lower() for p in raw.split(",")]
+    parts = [p for p in parts if p]
+    # dedupe while preserving order
+    seen = set()
+    normalized: list[str] = []
+    for p in parts:
+        if p not in seen:
+            seen.add(p)
+            normalized.append(p)
+    return ",".join(normalized)
+
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -71,6 +88,7 @@ def _verses_text_for_note(session: Session, note: Note) -> list[str]:
 
 def serialize_note(session: Session, note: Note) -> NoteRead:
     verses_text = _verses_text_for_note(session, note)
+    tags = [t for t in (note.tags_text or "").split(",") if t]
     return NoteRead(
         id=note.id,
         title=note.title,
@@ -92,6 +110,7 @@ def serialize_note(session: Session, note: Note) -> NoteRead:
         updated_at=note.updated_at,
         cross_references=[ref.canonical_id for ref in note.cross_references],
         verses_text=verses_text,
+        tags=tags,
     )
 
 
@@ -124,6 +143,7 @@ def fetch_author_notes(
     version_code: Optional[str] = None,
     book: Optional[str] = None,
     chapter: Optional[int] = None,
+    tag: Optional[str] = None,
 ) -> List[Note]:
     stmt = (
         select(Note)
@@ -150,6 +170,16 @@ def fetch_author_notes(
         if chapter:
             stmt = stmt.where(Verse.chapter == chapter)
 
+    if tag:
+        t = tag.strip().lower()
+        if t:
+            stmt = stmt.where(
+                (Note.tags_text == t)
+                | (Note.tags_text.like(f"{t},%"))
+                | (Note.tags_text.like(f"%,{t},%"))
+                | (Note.tags_text.like(f"%,{t}"))
+            )
+
     return session.exec(stmt).all()
 
 
@@ -157,8 +187,9 @@ def fetch_author_notes(
 def list_my_notes(
     session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    tag: Optional[str] = None,
 ) -> NotesResponse:
-    notes = session.exec(
+    stmt = (
         select(Note)
         .options(
             selectinload(Note.owner),
@@ -168,7 +199,19 @@ def list_my_notes(
         )
         .where(Note.owner_id == current_user.id)
         .order_by(Note.updated_at.desc())
-    ).all()
+    )
+
+    if tag:
+        t = tag.strip().lower()
+        if t:
+            stmt = stmt.where(
+                (Note.tags_text == t)
+                | (Note.tags_text.like(f"{t},%"))
+                | (Note.tags_text.like(f"%,{t},%"))
+                | (Note.tags_text.like(f"%,{t}"))
+            )
+
+    notes = session.exec(stmt).all()
 
     return NotesResponse(notes=[serialize_note(session, note) for note in notes])
 
@@ -257,6 +300,7 @@ def get_author_notes(
     author_id: int,
     session: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
+    tag: Optional[str] = None,
 ) -> AuthorNotesRead:
     author = session.get(User, author_id)
     if not author:
@@ -267,6 +311,7 @@ def get_author_notes(
         session,
         author_id=author_id,
         include_private=include_private,
+        tag=tag,
     )
 
     return AuthorNotesRead(
@@ -430,6 +475,8 @@ def create_note(
         end_verse_id=payload.end_verse_id,
         is_public=payload.is_public,
     )
+    # apply tags
+    note.tags_text = _normalize_tags(payload.tags)
     session.add(note)
     session.flush()
 

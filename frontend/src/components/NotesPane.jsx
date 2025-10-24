@@ -29,6 +29,7 @@ function NotesPane({
   const [content, setContent] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [endVerseId, setEndVerseId] = useState(null);
+  const [tags, setTags] = useState("");
 
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
@@ -36,6 +37,7 @@ function NotesPane({
   const [editIsPublic, setEditIsPublic] = useState(false);
   const [editEndVerseId, setEditEndVerseId] = useState(null);
   const [editEndOptions, setEditEndOptions] = useState([]);
+  const [editTags, setEditTags] = useState("");
 
   const verseOptions = useMemo(() => {
     if (!selectedVerse) {
@@ -57,12 +59,14 @@ function NotesPane({
       title,
       content,
       isPublic,
-      endVerseId: endVerseId ? Number(endVerseId) : undefined
+      endVerseId: endVerseId ? Number(endVerseId) : undefined,
+      tags
     });
     setTitle("");
     setContent("");
     setIsPublic(false);
     setEndVerseId(null);
+    setTags("");
   };
 
   // Backlinks in chapter payload are note metadata (not verse references)
@@ -74,6 +78,7 @@ function NotesPane({
     setEditContent(note.content_markdown || "");
     setEditIsPublic(Boolean(note.is_public));
     setEditEndVerseId(note.end_verse_id);
+    setEditTags(Array.isArray(note.tags) && note.tags.length ? note.tags.join(", ") : "");
     try {
       const chapter = await api.fetchChapter(note.version_code, note.start_book, note.start_chapter);
       const startIdx = chapter.verses.findIndex(v => v.id === note.start_verse_id);
@@ -91,6 +96,7 @@ function NotesPane({
     setEditIsPublic(false);
     setEditEndVerseId(null);
     setEditEndOptions([]);
+    setEditTags("");
   };
 
   const saveEdit = async original => {
@@ -99,6 +105,8 @@ function NotesPane({
     if ((editContent || "") !== (original.content_markdown || "")) payload.content_markdown = editContent;
     if (Boolean(editIsPublic) !== Boolean(original.is_public)) payload.is_public = editIsPublic;
     if (Number(editEndVerseId) !== Number(original.end_verse_id)) payload.end_verse_id = Number(editEndVerseId);
+    const originalTags = Array.isArray(original.tags) ? original.tags.join(", ") : "";
+    if ((editTags || "") !== originalTags) payload.tags = editTags;
     if (Object.keys(payload).length === 0) {
       cancelEdit();
       return;
@@ -188,6 +196,12 @@ function NotesPane({
                 ))}
               </select>
             </div>
+            <input
+              type="text"
+              placeholder="Tags (comma-separated)"
+              value={tags}
+              onChange={e => setTags(e.target.value)}
+            />
             <button type="submit" disabled={!selectedVerse}>
               Create note
             </button>
@@ -236,6 +250,12 @@ function NotesPane({
                         ))}
                       </select>
                     </div>
+                    <input
+                      type="text"
+                      placeholder="Tags (comma-separated)"
+                      value={editTags}
+                      onChange={e => setEditTags(e.target.value)}
+                    />
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button type="submit">Save</button>
                       <button type="button" onClick={cancelEdit}>Cancel</button>
@@ -256,6 +276,9 @@ function NotesPane({
                     <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
                     {note.cross_references.length ? (
                       <div className="note-meta">References: {note.cross_references.join(", ")}</div>
+                    ) : null}
+                    {Array.isArray(note.tags) && note.tags.length ? (
+                      <div className="note-meta">Tags: {note.tags.join(", ")}</div>
                     ) : null}
                     <div style={{ marginTop: "0.5rem" }}>
                       <button type="button" onClick={() => beginEdit(note)}>Edit</button>

@@ -88,6 +88,8 @@ class Note(TimestampMixin, SQLModel, table=True):
     start_verse_id: int = Field(foreign_key="verse.id")
     end_verse_id: int = Field(foreign_key="verse.id")
     is_public: bool = Field(default=False)
+    # Comma-separated normalized tags (lowercased, trimmed)
+    tags_text: str = Field(default="")
 
     owner: User = Relationship(back_populates="notes")
     anchor_start: Verse = Relationship(
