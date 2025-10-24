@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
 
-function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, selectionMode, onSelectionModeChange, activeTab }) {
+function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, selectionMode, onSelectionModeChange, activeTab, onAddNote }) {
   const stripTags = html => html.replace(/<[^>]+>/g, " ");
   const tokenize = text => stripTags(text || "").trim().split(/\s+/).filter(Boolean);
   const STOPWORDS = new Set([
@@ -284,8 +284,18 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
                   } catch {}
                 }}
               >
-                <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
                   <span className="verse-number">{verse.verse}</span>
+                  {onAddNote ? (
+                    <button
+                      type="button"
+                      className="icon-btn add-note-btn"
+                      title="Add note"
+                      onClick={e => { e.stopPropagation(); onAddNote(chapterData.book, chapterData.chapter, verse.verse, verse.id); }}
+                    >
+                      +
+                    </button>
+                  ) : null}
                   {selectionMode === "word" ? (
                     <span>
                       {tokenize(verse.text).map((tok, i) => (

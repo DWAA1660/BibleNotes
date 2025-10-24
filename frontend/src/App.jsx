@@ -143,6 +143,18 @@ function App() {
   const [concordanceQuery, setConcordanceQuery] = useState("");
   const [backlinks, setBacklinks] = useState([]);
   const [isLoadingBacklinks, setIsLoadingBacklinks] = useState(false);
+  // Create Note modal state (opened from BiblePane per-verse Add button)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [modalBook, setModalBook] = useState("");
+  const [modalChapter, setModalChapter] = useState(0);
+  const [modalVerseNumber, setModalVerseNumber] = useState(0);
+  const [modalVerseId, setModalVerseId] = useState(null);
+  const [modalEndVerseId, setModalEndVerseId] = useState(null);
+  const [modalEndOptions, setModalEndOptions] = useState([]);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalContent, setModalContent] = useState("");
+  const [modalIsPublic, setModalIsPublic] = useState(false);
+  const [modalTags, setModalTags] = useState("");
 
   // Utility: map a free-text book name to a canonical entry in BOOKS
   const resolveBook = useCallback((raw) => {
@@ -307,6 +319,65 @@ function App() {
     }
     setPendingGoto(null);
   }, [pendingGoto, chapterData]);
+
+  const openCreateNoteModal = useCallback((book, chapter, verseNumber, verseId) => {
+    if (!authToken) {
+      setIsAuthOpen(true);
+      return;
+    }
+    setModalBook(book);
+    setModalChapter(chapter);
+    setModalVerseNumber(verseNumber);
+    setModalVerseId(verseId);
+    // Build end-verse options from current chapter data
+    const options = (chapterData?.verses || [])
+      .filter(v => v.verse >= verseNumber)
+      .map(v => ({ id: v.id, label: `${v.chapter}:${v.verse}` }));
+    setModalEndOptions(options);
+    setModalEndVerseId(verseId);
+    setModalTitle("");
+    setModalContent("");
+    setModalIsPublic(false);
+    setModalTags("");
+    setIsCreateModalOpen(true);
+  }, [authToken, chapterData]);
+
+  const closeCreateNoteModal = useCallback(() => {
+    setIsCreateModalOpen(false);
+  }, []);
+
+  const submitCreateNoteModal = useCallback(async () => {
+    if (!authToken || !selectedVersion || !modalVerseId) return;
+    try {
+      await api.createNote({
+        title: modalTitle,
+        content_markdown: modalContent,
+        version_code: selectedVersion,
+        start_verse_id: modalVerseId,
+        end_verse_id: modalEndVerseId || modalVerseId,
+        is_public: modalIsPublic,
+        tags: modalTags
+      });
+      // Refresh my notes for current chapter
+      if (authToken) {
+        const my = await api.fetchMyNotes();
+        const filtered = my.notes.filter(n =>
+          n.version_code === selectedVersion &&
+          n.start_book === selectedBook &&
+          n.start_chapter === selectedChapter
+        );
+        setNotes(filtered);
+      }
+      // Navigate/scroll to the verse
+      setSelectedBook(modalBook);
+      setSelectedChapter(modalChapter);
+      setRequestedVerseNumber(modalVerseNumber);
+      setPendingGoto({ book: modalBook, chapter: modalChapter, verse: modalVerseNumber });
+      setIsCreateModalOpen(false);
+    } catch (e) {
+      setNoteError(e.message || "Failed to create note");
+    }
+  }, [authToken, selectedVersion, selectedBook, selectedChapter, modalVerseId, modalEndVerseId, modalTitle, modalContent, modalIsPublic, modalTags, modalBook, modalChapter, modalVerseNumber]);
 
   // Global navigation request from panes (e.g., backlinks click)
   useEffect(() => {
@@ -758,6 +829,35 @@ function App() {
         </div>
       )}
       {location.pathname === "/" ? null : null}
+      {isCreateModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="pane-header" style={{ borderBottom: "none", padding: 0, marginBottom: "0.5rem" }}>
+              <div style={{ fontWeight: 600 }}>Add Note · {modalBook} {modalChapter}:{modalVerseNumber}</div>
+            </div>
+            <form className="notes-form" onSubmit={e => { e.preventDefault(); submitCreateNoteModal(); }}>
+              <input type="text" placeholder="Title" value={modalTitle} onChange={e => setModalTitle(e.target.value)} />
+              <textarea placeholder="Write your note..." value={modalContent} onChange={e => setModalContent(e.target.value)} />
+              <div className="notes-form-row" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <label>End verse</label>
+                <select value={modalEndVerseId || modalVerseId} onChange={e => setModalEndVerseId(Number(e.target.value))}>
+                  {modalEndOptions.map(opt => (
+                    <option key={opt.id} value={opt.id}>{opt.label}</option>
+                  ))}
+                </select>
+                <label style={{ marginLeft: "auto" }}>
+                  <input type="checkbox" checked={modalIsPublic} onChange={e => setModalIsPublic(e.target.checked)} /> Public
+                </label>
+              </div>
+              <input type="text" placeholder="Tags (comma-separated)" value={modalTags} onChange={e => setModalTags(e.target.value)} />
+              <div className="modal-actions" style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                <button type="button" onClick={closeCreateNoteModal}>Cancel</button>
+                <button type="submit">Create</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
       <main className="main-content">
         <Routes>
           <Route
@@ -810,6 +910,7 @@ function App() {
                   selectionMode={selectionMode}
                   onSelectionModeChange={setSelectionMode}
                   activeTab={rightPaneTab}
+                  onAddNote={(b, c, v, id) => openCreateNoteModal(b, c, v, id)}
                 />
                 {rightPaneTab === "commentaries" ? (
                   <CommentaryPane

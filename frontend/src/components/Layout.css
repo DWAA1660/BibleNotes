@@ -605,6 +605,42 @@ input:focus, select:focus, textarea:focus {
   font-size: 0.95rem;
 }
 
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+.modal {
+  width: 100%;
+  max-width: 720px;
+  background: var(--card);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  padding: 1rem;
+}
+
+/* Small icon button (for per-verse add) */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #f3f4f6;
+  color: var(--text);
+}
+.icon-btn:hover { background: #e5e7eb; }
+.add-note-btn { font-weight: 700; line-height: 1; }
+
 /* Responsive layout adjustments */
 @media (max-width: 1200px) {
   .panes { grid-template-columns: 1fr 1fr; }
