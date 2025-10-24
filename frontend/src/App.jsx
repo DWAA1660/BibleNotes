@@ -970,6 +970,7 @@ function App() {
                     selectedAuthorId={selectedAuthorId}
                     onSelectAuthor={handleSelectAuthor}
                     authorNotes={authorNotes.filter(n => n.start_book === selectedBook && n.start_chapter === selectedChapter)}
+                    allAuthorNotes={authorNotes}
                     isLoading={isLoadingCommentaries}
                     selectedVerse={selectedVerse}
                     book={selectedBook}

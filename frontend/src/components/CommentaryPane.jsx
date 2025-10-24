@@ -17,6 +17,7 @@ function CommentaryPane({
   selectedAuthorId,
   onSelectAuthor,
   authorNotes,
+  allAuthorNotes,
   isLoading,
   selectedVerse,
   book,
@@ -25,8 +26,8 @@ function CommentaryPane({
   syncNotes
 }) {
   const selectedCanon = selectedVerse?.canonical_id;
-  const backlinks = Array.isArray(authorNotes) && selectedCanon
-    ? authorNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(selectedCanon))
+  const backlinks = Array.isArray(allAuthorNotes) && selectedCanon
+    ? allAuthorNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(selectedCanon))
     : [];
   const BOOKS = [
     "Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth",
@@ -246,8 +247,9 @@ function CommentaryPane({
                 {Array.isArray(verses) && verses.length ? verses.map(v => {
                   const verseNotes = authorNotes.filter(n => Number(n.start_verse) === Number(v.verse));
                   const canon = v.canonical_id;
-                  const verseBacklinks = Array.isArray(authorNotes) && canon
-                    ? authorNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(canon))
+                  const allNotes = Array.isArray(allAuthorNotes) ? allAuthorNotes : authorNotes;
+                  const verseBacklinks = Array.isArray(allNotes) && canon
+                    ? allNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(canon))
                     : [];
                   const isOpen = !!openBacklinks[v.verse];
                   return (
@@ -338,6 +340,7 @@ CommentaryPane.propTypes = {
   selectedAuthorId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   onSelectAuthor: PropTypes.func.isRequired,
   authorNotes: PropTypes.array.isRequired,
+  allAuthorNotes: PropTypes.array,
   isLoading: PropTypes.bool,
   selectedVerse: PropTypes.object,
   book: PropTypes.string,
@@ -351,7 +354,8 @@ CommentaryPane.defaultProps = {
   onChangeTab: () => {},
   isAuthenticated: false,
   selectedAuthorId: null,
-  isLoading: false
+  isLoading: false,
+  allAuthorNotes: []
 };
 
 export default CommentaryPane;
