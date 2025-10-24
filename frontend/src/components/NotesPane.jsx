@@ -6,7 +6,7 @@
 //   allows client-side filtering by a single tag.
 import PropTypes from "prop-types";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 
 function formatReference(note) {
@@ -69,6 +69,40 @@ function NotesPane({
     }
     return verses.slice(startIndex).map(verse => ({ id: verse.id, label: `${verse.chapter}:${verse.verse}` }));
   }, [verses, selectedVerse]);
+
+  // Scroll to the first note whose range includes the selected verse
+  const listRef = useRef(null);
+  const scrollToVerseNote = (verseNumber) => {
+    const container = listRef.current;
+    if (!container || !Array.isArray(notes) || !notes.length) return;
+    const targetNote = notes.find(n => {
+      const sv = Number(n.start_verse) || 0;
+      const ev = Number(n.end_verse) || sv;
+      return verseNumber >= Math.min(sv, ev) && verseNumber <= Math.max(sv, ev);
+    });
+    if (!targetNote) return;
+    const el = container.querySelector(`[data-note-id="${targetNote.id}"]`);
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    }
+  };
+
+  useEffect(() => {
+    function onBibleSelect(e) {
+      const d = e.detail || {};
+      if (!d || !Number.isFinite(d.verse)) return;
+      scrollToVerseNote(Number(d.verse));
+    }
+    window.addEventListener("bible-verse-selected", onBibleSelect);
+    return () => window.removeEventListener("bible-verse-selected", onBibleSelect);
+  }, [notes]);
+
+  useEffect(() => {
+    if (selectedVerse?.verse) {
+      scrollToVerseNote(Number(selectedVerse.verse));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVerse?.id, notes?.length]);
 
   // Create a new note spanning from selectedVerse to endVerseId (if set)
   const handleSubmit = event => {
@@ -239,11 +273,11 @@ function NotesPane({
         {isLoading ? (
           <div className="loading-state">Loading notes...</div>
         ) : (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes).length ? (
-          <div className="notes-list">
+          <div className="notes-list" ref={listRef}>
             {(
               activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes
             ).map(note => (
-              <div key={note.id} className="note-card">
+              <div key={note.id} className="note-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse}>
                 {editingNoteId === note.id ? (
                   <form className="notes-form" onSubmit={e => { e.preventDefault(); saveEdit(note); }}>
                     <input

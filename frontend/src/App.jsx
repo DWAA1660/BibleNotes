@@ -813,24 +813,27 @@ function App() {
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal">
             <div className="pane-header" style={{ borderBottom: "none", padding: 0, marginBottom: "0.5rem" }}>
-              <div style={{ fontWeight: 600 }}>Login / Signup</div>
+              <div style={{ fontWeight: 600 }}>{authMode === "signup" ? "Create account" : "Login"}</div>
             </div>
-            <form className="auth-form" onSubmit={handleAuthSubmit} style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              <select value={authMode} onChange={event => setAuthMode(event.target.value)}>
-                <option value="login">Login</option>
-                <option value="signup">Signup</option>
-              </select>
+            <form className="auth-form" onSubmit={handleAuthSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <input name="email" type="email" placeholder="Email" required />
               <input name="password" type="password" placeholder="Password" required />
               {authMode === "signup" ? (
-                <input name="displayName" type="text" placeholder="Display name" />
+                <input name="displayName" type="text" placeholder="Display name (optional)" />
               ) : null}
-              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", justifyContent: "flex-end" }}>
                 <button type="button" onClick={() => setIsAuthOpen(false)}>Cancel</button>
-                <button type="submit">Submit</button>
+                <button type="submit">{authMode === "signup" ? "Create account" : "Login"}</button>
               </div>
             </form>
-            {!authToken && authError ? <div className="error-text" style={{ marginTop: "0.5rem" }}>{authError}</div> : null}
+            <div style={{ marginTop: "0.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div className="error-text">{!authToken && authError ? authError : ""}</div>
+              {authMode === "signup" ? (
+                <button type="button" className="note-link" onClick={() => setAuthMode("login")}>Back to login</button>
+              ) : (
+                <button type="button" className="note-link" onClick={() => setAuthMode("signup")}>Create account</button>
+              )}
+            </div>
           </div>
         </div>
       ) : null}

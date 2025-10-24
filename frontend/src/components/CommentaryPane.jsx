@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function formatReference(note) {
   if (!note) return "";
@@ -60,6 +60,36 @@ function CommentaryPane({
     setExpanded(val);
     try { localStorage.setItem("commentaryBacklinksExpanded", val ? "1" : "0"); } catch {}
   };
+  const listRef = useRef(null);
+  const scrollToVerse = (book, chapter, verse) => {
+    const container = listRef.current;
+    if (!container || !Array.isArray(authorNotes) || !authorNotes.length) return;
+    const target = authorNotes.find(n => n.start_book === book && Number(n.start_chapter) === Number(chapter) && (
+      Number(verse) >= Math.min(Number(n.start_verse) || 0, Number(n.end_verse) || Number(n.start_verse) || 0) &&
+      Number(verse) <= Math.max(Number(n.start_verse) || 0, Number(n.end_verse) || Number(n.start_verse) || 0)
+    ));
+    if (!target) return;
+    const el = container.querySelector(`[data-note-id="${target.id}"]`);
+    if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+  };
+
+  useEffect(() => {
+    function onBibleSelect(e) {
+      const d = e.detail || {};
+      if (!d || !d.book || !d.chapter || !d.verse) return;
+      if (activeTab !== "commentaries") return;
+      scrollToVerse(d.book, d.chapter, d.verse);
+    }
+    window.addEventListener("bible-verse-selected", onBibleSelect);
+    return () => window.removeEventListener("bible-verse-selected", onBibleSelect);
+  }, [authorNotes, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "commentaries") return;
+    const b = selectedVerse?.book, c = selectedVerse?.chapter, v = selectedVerse?.verse;
+    if (b && c && v) scrollToVerse(b, c, v);
+  }, [selectedVerse?.id, authorNotes?.length, activeTab]);
+
   return (
     <div className="pane">
       <div className="pane-header tabs-header">
@@ -151,9 +181,9 @@ function CommentaryPane({
           {isLoading ? (
             <div className="loading-state">Loading notes…</div>
           ) : authorNotes.length ? (
-            <div className="entries-list">
+            <div className="entries-list" ref={listRef}>
               {authorNotes.map(note => (
-                <div key={note.id} className="entry-card">
+                <div key={note.id} className="entry-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse} data-book={note.start_book} data-chapter={note.start_chapter}>
                   <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
                   <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
                   <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
