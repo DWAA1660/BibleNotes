@@ -252,13 +252,13 @@ function CommentaryPane({
                   const isOpen = !!openBacklinks[v.verse];
                   return (
                     <div key={`row-${v.id}`} className="entry-row" data-sync-verse={v.verse}>
-                      {/* Always show backlinks toggle with count */}
-                      <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
-                        <span>Backlinks {`(${verseBacklinks.length})`}</span>
-                        <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
-                      </div>
                       {verseNotes.length === 0 ? (
                         <div className="entry-card empty">
+                          {/* Toggle inside the box */}
+                          <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
+                            <span>Backlinks {`(${verseBacklinks.length})`}</span>
+                            <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
+                          </div>
                           {isOpen && verseBacklinks.length ? (
                             <div className="backlinks-box">
                               <div className="backlinks-title">Backlinks</div>
@@ -279,6 +279,13 @@ function CommentaryPane({
                           <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
                           <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
                           <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                          {/* Toggle inside the first card */}
+                          {idx === 0 ? (
+                            <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
+                              <span>Backlinks {`(${verseBacklinks.length})`}</span>
+                              <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
+                            </div>
+                          ) : null}
                           {idx === 0 && isOpen && verseBacklinks.length ? (
                             <div className="backlinks-box">
                               <div className="backlinks-title">Backlinks</div>
