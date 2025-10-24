@@ -403,6 +403,35 @@ input:focus, select:focus, textarea:focus {
 .entry-row.flash {
   animation: noteFlash 1s ease-out;
 }
+/* Empty verse placeholders */
+.note-card.empty,
+.entry-card.empty {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.empty-text {
+  color: var(--muted);
+  font-style: italic;
+}
+.empty-ref { margin-top: 0.25rem; }
+
+/* Backlinks inside verse rows */
+.backlinks-box {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.5rem;
+  background: #f9fafb;
+}
+.backlinks-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+.backlinks-list { display: flex; flex-direction: column; gap: 0.25rem; }
+.backlink-item { padding: 0.35rem 0.4rem; border-radius: 0.35rem; }
+.backlink-item:hover { background: #f3f4f6; }
 @keyframes noteFlash {
   0% { box-shadow: 0 0 0 3px rgba(37,99,235,0.25), var(--shadow); }
   60% { box-shadow: 0 0 0 1px rgba(37,99,235,0.15), var(--shadow); }

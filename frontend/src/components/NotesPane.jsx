@@ -293,49 +293,7 @@ function NotesPane({
         </label>
       </div>
       <div className="pane-content" ref={contentRef}>
-        {selectedVerse ? (
-          <div className="note-context">
-            Selected verse: {selectedVerse.chapter}:{selectedVerse.verse}
-          </div>
-        ) : (
-          <div className="empty-state">Select a verse to create notes.</div>
-        )}
-
-        {selectedVerse ? (
-          <div className="commentary-section">
-            <div className="section-title">Backlinks to this verse</div>
-            {isLoadingBacklinks ? (
-              <div className="loading-state">Loading backlinks…</div>
-            ) : backlinks?.length ? (
-              <div className="commentary-list">
-                {backlinks.map((b) => (
-                  <div
-                    key={b.note_id}
-                    className="commentary-item"
-                    onClick={() => {
-                      try {
-                        window.dispatchEvent(new CustomEvent("open-verse", { detail: { book: b.source_book, chapter: b.source_chapter, verse: b.source_verse } }));
-                      } catch {}
-                    }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="note-title" style={{ fontWeight: 600 }}>{b.note_title || "Untitled"}</div>
-                    <div className="note-meta">
-                      by {b.note_owner_name || "Unknown"}{b.note_is_public ? "" : " (private)"}
-                      {b.source_book && b.source_chapter && b.source_verse ? (
-                        <> · {b.source_book} {b.source_chapter}:{b.source_verse}</>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state">No backlinks found for this verse.</div>
-            )}
-          </div>
-        ) : null}
-
-        {/* Note creation form removed per request; use the + button in Bible per-verse */}
+        {/* Backlinks moved into the selected verse row below. Note creation form removed per request. */}
 
         {noteError ? <div className="error-text">{noteError}</div> : null}
 
@@ -352,9 +310,38 @@ function NotesPane({
                     <div className="note-card empty">
                       <div className="empty-text">No notes for this verse yet.</div>
                       <div className="note-meta empty-ref">{book} {v.chapter}:{v.verse}</div>
+                      {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) ? (
+                        isLoadingBacklinks ? (
+                          <div className="backlinks-box">Loading backlinks…</div>
+                        ) : backlinks?.length ? (
+                          <div className="backlinks-box">
+                            <div className="backlinks-title">Backlinks</div>
+                            <div className="backlinks-list">
+                              {backlinks.map(b => (
+                                <div
+                                  key={b.note_id}
+                                  className="backlink-item"
+                                  onClick={() => {
+                                    try { window.dispatchEvent(new CustomEvent("open-verse", { detail: { book: b.source_book, chapter: b.source_chapter, verse: b.source_verse } })); } catch {}
+                                  }}
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  <div className="note-title" style={{ fontWeight: 600 }}>{b.note_title || "Untitled"}</div>
+                                  <div className="note-meta">
+                                    by {b.note_owner_name || "Unknown"}{b.note_is_public ? "" : " (private)"}
+                                    {b.source_book && b.source_chapter && b.source_verse ? (
+                                      <> · {b.source_book} {b.source_chapter}:{b.source_verse}</>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null
+                      ) : null}
                     </div>
                   ) : null}
-                  {verseNotes.map(note => (
+                  {verseNotes.map((note, idx) => (
                     <div key={note.id} className="note-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse}>
                       {editingNoteId === note.id ? (
                         <form className="notes-form" onSubmit={e => { e.preventDefault(); saveEdit(note); }}>
@@ -433,6 +420,35 @@ function NotesPane({
                           <div style={{ marginTop: "0.5rem" }}>
                             <button type="button" onClick={() => beginEdit(note)}>Edit</button>
                           </div>
+                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 ? (
+                            isLoadingBacklinks ? (
+                              <div className="backlinks-box">Loading backlinks…</div>
+                            ) : backlinks?.length ? (
+                              <div className="backlinks-box">
+                                <div className="backlinks-title">Backlinks</div>
+                                <div className="backlinks-list">
+                                  {backlinks.map(b => (
+                                    <div
+                                      key={b.note_id}
+                                      className="backlink-item"
+                                      onClick={() => {
+                                        try { window.dispatchEvent(new CustomEvent("open-verse", { detail: { book: b.source_book, chapter: b.source_chapter, verse: b.source_verse } })); } catch {}
+                                      }}
+                                      style={{ cursor: 'pointer' }}
+                                    >
+                                      <div className="note-title" style={{ fontWeight: 600 }}>{b.note_title || "Untitled"}</div>
+                                      <div className="note-meta">
+                                        by {b.note_owner_name || "Unknown"}{b.note_is_public ? "" : " (private)"}
+                                        {b.source_book && b.source_chapter && b.source_verse ? (
+                                          <> · {b.source_book} {b.source_chapter}:{b.source_verse}</>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null
+                          ) : null}
                         </>
                       )}
                     </div>
