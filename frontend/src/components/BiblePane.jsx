@@ -45,6 +45,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
   const lastBroadcastRef = useRef({ top: -1, hash: "" });
   const stabilizingRef = useRef(false);
   const pendingSpacerRef = useRef(null);
+  const lastTopVerseRef = useRef(null);
  
 
   // Measure Bible verse heights and broadcast to Manuscripts for equalization
@@ -165,6 +166,51 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     window.addEventListener("goto-verse", onGoto);
     return () => window.removeEventListener("goto-verse", onGoto);
   }, [chapterData]);
+
+  // As the Bible pane scrolls, emit the verse nearest the top so other panes can align
+  useEffect(() => {
+    const container = contentRef.current;
+    if (!container || !chapterData) return;
+    lastTopVerseRef.current = null;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const list = listRef.current;
+        if (!list) return;
+        const items = Array.from(list.querySelectorAll('[data-verse]'));
+        if (!items.length) return;
+        const contRect = container.getBoundingClientRect();
+        let bestVerse = null;
+        let bestDelta = Infinity;
+        for (const el of items) {
+          const delta = el.getBoundingClientRect().top - contRect.top;
+          if (delta >= -2 && delta < bestDelta) {
+            bestDelta = delta;
+            bestVerse = Number(el.getAttribute('data-verse')) || null;
+          }
+        }
+        if (bestVerse == null) {
+          // If all are below the top, choose the first; if all are above, choose the last
+          const first = items[0];
+          const last = items[items.length - 1];
+          const firstDelta = first.getBoundingClientRect().top - contRect.top;
+          const lastDelta = last.getBoundingClientRect().top - contRect.top;
+          bestVerse = firstDelta >= 0 ? Number(first.getAttribute('data-verse')) : Number(last.getAttribute('data-verse'));
+        }
+        if (bestVerse && lastTopVerseRef.current !== bestVerse) {
+          lastTopVerseRef.current = bestVerse;
+          try {
+            window.dispatchEvent(new CustomEvent('bible-verse-selected', { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: bestVerse } }));
+          } catch {}
+        }
+      });
+    };
+    container.addEventListener('scroll', onScroll);
+    return () => container.removeEventListener('scroll', onScroll);
+  }, [chapterData?.book, chapterData?.chapter]);
 
   // Fallback: whenever selectedVerseId changes, ensure the verse is scrolled into view
   useEffect(() => {

@@ -70,7 +70,13 @@ function CommentaryPane({
     ));
     if (!target) return;
     const el = container.querySelector(`[data-note-id="${target.id}"]`);
-    if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+      try {
+        el.classList.add('flash');
+        setTimeout(() => el.classList.remove('flash'), 1200);
+      } catch {}
+    }
   };
 
   useEffect(() => {

@@ -394,6 +394,14 @@ input:focus, select:focus, textarea:focus {
 .note-card:hover {
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
+.note-card.flash {
+  animation: noteFlash 1s ease-out;
+}
+@keyframes noteFlash {
+  0% { box-shadow: 0 0 0 3px rgba(37,99,235,0.25), var(--shadow); }
+  60% { box-shadow: 0 0 0 1px rgba(37,99,235,0.15), var(--shadow); }
+  100% { box-shadow: var(--shadow); }
+}
 
 .note-header {
   display: flex;

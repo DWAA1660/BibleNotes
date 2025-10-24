@@ -70,20 +70,34 @@ function NotesPane({
     return verses.slice(startIndex).map(verse => ({ id: verse.id, label: `${verse.chapter}:${verse.verse}` }));
   }, [verses, selectedVerse]);
 
-  // Scroll to the first note whose range includes the selected verse
+  // Scroll to the first note whose range includes the selected verse; if none, pick the next or previous
   const listRef = useRef(null);
+  const contentRef = useRef(null);
   const scrollToVerseNote = (verseNumber) => {
-    const container = listRef.current;
-    if (!container || !Array.isArray(notes) || !notes.length) return;
-    const targetNote = notes.find(n => {
+    const container = contentRef.current;
+    const list = listRef.current;
+    const allNotes = (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes) || [];
+    if (!container || !list || !allNotes.length) return;
+    const inRange = (n) => {
       const sv = Number(n.start_verse) || 0;
       const ev = Number(n.end_verse) || sv;
-      return verseNumber >= Math.min(sv, ev) && verseNumber <= Math.max(sv, ev);
-    });
+      const lo = Math.min(sv, ev), hi = Math.max(sv, ev);
+      return verseNumber >= lo && verseNumber <= hi;
+    };
+    let targetNote = allNotes.find(inRange);
+    if (!targetNote) {
+      // Choose the next note starting after the verse, otherwise the last note before it
+      const byStart = [...allNotes].sort((a, b) => (a.start_verse || 0) - (b.start_verse || 0));
+      targetNote = byStart.find(n => Number(n.start_verse) >= verseNumber) || byStart[byStart.length - 1];
+    }
     if (!targetNote) return;
-    const el = container.querySelector(`[data-note-id="${targetNote.id}"]`);
-    if (el && el.scrollIntoView) {
-      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    const el = list.querySelector(`[data-note-id="${targetNote.id}"]`);
+    if (el) {
+      const contRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const top = container.scrollTop + (elRect.top - contRect.top) - 8;
+      container.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      try { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); } catch {}
     }
   };
 
@@ -176,7 +190,7 @@ function NotesPane({
   return (
     <div className="pane">
       <div className="pane-header">My Notes</div>
-      <div className="pane-content">
+      <div className="pane-content" ref={contentRef}>
         {selectedVerse ? (
           <div className="note-context">
             Selected verse: {selectedVerse.chapter}:{selectedVerse.verse}
@@ -274,9 +288,7 @@ function NotesPane({
           <div className="loading-state">Loading notes...</div>
         ) : (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes).length ? (
           <div className="notes-list" ref={listRef}>
-            {(
-              activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes
-            ).map(note => (
+            {(activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes).map(note => (
               <div key={note.id} className="note-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse}>
                 {editingNoteId === note.id ? (
                   <form className="notes-form" onSubmit={e => { e.preventDefault(); saveEdit(note); }}>
