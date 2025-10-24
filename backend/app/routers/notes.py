@@ -1,20 +1,3 @@
-    if payload.tags is not None:
-        note.tags_text = _normalize_tags(payload.tags)
-
-def _normalize_tags(raw: Optional[str]) -> str:
-    if not raw:
-        return ""
-    parts = [p.strip().lower() for p in raw.split(",")]
-    parts = [p for p in parts if p]
-    # dedupe while preserving order
-    seen = set()
-    normalized: list[str] = []
-    for p in parts:
-        if p not in seen:
-            seen.add(p)
-            normalized.append(p)
-    return ",".join(normalized)
-
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -43,6 +26,20 @@ from ..utils.reference_parser import extract_canonical_ids
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
+
+def _normalize_tags(raw: Optional[str]) -> str:
+    if not raw:
+        return ""
+    parts = [p.strip().lower() for p in raw.split(",")]
+    parts = [p for p in parts if p]
+    # dedupe while preserving order
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for p in parts:
+        if p not in seen:
+            seen.add(p)
+            normalized.append(p)
+    return ",".join(normalized)
 
 def get_author_label(user: User) -> str:
     return user.display_name or user.email
