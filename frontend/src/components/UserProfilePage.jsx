@@ -11,6 +11,27 @@ function formatReference(note) {
   return note.version_code ? `${range} · ${note.version_code}` : range;
 }
 
+function parseCanonId(canonicalId) {
+  if (!canonicalId) return null;
+  const parts = canonicalId.split("|");
+  if (parts.length !== 3) return null;
+  const [book, chapterStr, verseStr] = parts;
+  const chapter = Number(chapterStr);
+  const verse = Number(verseStr);
+  if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse)) return null;
+  return { book, chapter, verse };
+}
+
+function parseVerseLine(line) {
+  if (!line) return null;
+  const match = /^\s*(\d+):(\d+)\s*(.*)$/.exec(line);
+  if (!match) return null;
+  const chapter = Number(match[1]);
+  const verse = Number(match[2]);
+  if (!Number.isFinite(chapter) || !Number.isFinite(verse)) return null;
+  return { chapter, verse, text: match[3] || "" };
+}
+
 function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions, onSubscribeAuthor, onUnsubscribeAuthor }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -40,6 +61,13 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
   const [chapter, setChapter] = useState("");
   const [verse, setVerse] = useState("");
   const [text, setText] = useState("");
+
+  const openVerse = (book, chapter, verseNumber, version) => {
+    if (!book || !Number.isFinite(chapter) || !Number.isFinite(verseNumber)) return;
+    try {
+      window.dispatchEvent(new CustomEvent("open-verse", { detail: { book, chapter, verse: verseNumber, version } }));
+    } catch {}
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -186,9 +214,7 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
           placeholder="Search text"
           value={text}
           onChange={e => setText(e.target.value)}
-          style={{ flex: 1 }}
         />
-        <button type="button" onClick={() => { setBook(""); setChapter(""); setVerse(""); setText(""); }}>Clear</button>
       </div>
 
       {isLoading ? (
@@ -201,14 +227,64 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
             <article key={note.id} className="profile-note">
               <header className="profile-note-header">
                 <h2>{note.title || "Untitled"}</h2>
-                <span className="note-meta">{formatReference(note)}</span>
+                <span className="note-meta">
+                  <button
+                    type="button"
+                    className="note-link"
+                    onClick={() => openVerse(note.start_book, note.start_chapter, note.start_verse, note.version_code)}
+                    aria-label={`Go to ${formatReference(note)}`}
+                  >
+                    {formatReference(note)}
+                  </button>
+                </span>
               </header>
               <div className="profile-note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+              {note.cross_references && note.cross_references.length ? (
+                <div className="note-meta">
+                  References:{" "}
+                  {note.cross_references.map((canonicalId, idx) => {
+                    const parsed = parseCanonId(canonicalId);
+                    const label = parsed ? `${parsed.book} ${parsed.chapter}:${parsed.verse}` : canonicalId;
+                    return (
+                      <span key={`${canonicalId}-${idx}`}>
+                        {idx > 0 ? ", " : ""}
+                        {parsed ? (
+                          <button
+                            type="button"
+                            className="note-link"
+                            onClick={() => openVerse(parsed.book, parsed.chapter, parsed.verse, note.version_code)}
+                          >
+                            {label}
+                          </button>
+                        ) : label}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : null}
               {note.verses_text && note.verses_text.length ? (
                 <div className="verse-box">
-                  {note.verses_text.map((line, idx) => (
-                    <div key={idx} className="note-meta">{line}</div>
-                  ))}
+                  {note.verses_text.map((line, idx) => {
+                    const parsed = parseVerseLine(line);
+                    return (
+                      <div key={idx} className="note-meta">
+                        {parsed ? (
+                          <>
+                            <button
+                              type="button"
+                              className="note-link"
+                              onClick={() => openVerse(note.start_book, parsed.chapter, parsed.verse, note.version_code)}
+                            >
+                              {`${note.start_book} ${parsed.chapter}:${parsed.verse}`}
+                            </button>
+                            {parsed.text ? <span>{` ${parsed.text}`}</span> : null}
+                          </>
+                        ) : (
+                          line
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </article>

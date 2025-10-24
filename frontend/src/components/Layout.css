@@ -345,6 +345,21 @@ body {
   font-size: 0.9rem;
 }
 
+.note-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+
+.note-link:hover,
+.note-link:focus {
+  color: #1d4ed8;
+}
+
 .commentary-section {
   display: flex;
   flex-direction: column;
