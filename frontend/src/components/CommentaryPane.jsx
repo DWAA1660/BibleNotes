@@ -240,7 +240,6 @@ function CommentaryPane({
         </div>
 
         <div className="commentary-section">
-          <div className="section-title">Selected Commentator</div>
           {isLoading ? (
             <div className="loading-state">Loading notes…</div>
           ) : authorNotes.length ? (
