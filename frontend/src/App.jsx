@@ -279,12 +279,6 @@ function App() {
         setChapterData(data);
         if (data.verses.length > 0) {
           setSelectedVerseId(prev => {
-            if (requestedVerseNumber != null) {
-              const match = data.verses.find(verse => verse.verse === requestedVerseNumber);
-              if (match) {
-                return match.id;
-              }
-            }
             if (prev && data.verses.some(verse => verse.id === prev)) {
               return prev;
             }
@@ -322,7 +316,7 @@ function App() {
       }
     }
     loadChapterAndNotes();
-  }, [selectedVersion, selectedBook, selectedChapter, requestedVerseNumber, authToken]);
+  }, [selectedVersion, selectedBook, selectedChapter, authToken]);
 
   useEffect(() => {
     if (!chapterData || requestedVerseNumber != null) {
@@ -333,6 +327,16 @@ function App() {
       setRequestedVerseNumber(verse.verse);
     }
   }, [chapterData, selectedVerseId, requestedVerseNumber]);
+
+  useEffect(() => {
+    if (!chapterData || requestedVerseNumber == null) {
+      return;
+    }
+    const match = chapterData.verses.find(v => v.verse === requestedVerseNumber);
+    if (match && match.id !== selectedVerseId) {
+      setSelectedVerseId(match.id);
+    }
+  }, [chapterData, requestedVerseNumber, selectedVerseId]);
 
   useEffect(() => {
     async function loadAuthorSubscriptions() {
