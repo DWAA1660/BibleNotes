@@ -201,11 +201,8 @@ function NotesPane({
       const items = Array.from(list.querySelectorAll('[data-sync-verse]'));
       const map = d.heights || {};
       for (const el of items) {
-        const prev = el.style.minHeight; if (prev) el.style.minHeight = '';
-        const ownH = el.getBoundingClientRect().height;
         const v = Number(el.getAttribute('data-sync-verse'));
-        const biH = map[v] || 0;
-        const h = Math.max(Math.ceil(ownH), Math.ceil(biH));
+        const h = Math.ceil(map[v] || 0);
         el.style.minHeight = h ? `${h}px` : '';
       }
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
@@ -338,54 +335,7 @@ function NotesPane({
           </div>
         ) : null}
 
-        {isAuthenticated ? (
-          <form className="notes-form" onSubmit={handleSubmit}>
-            <input
-              type="text"
-              placeholder="Note title"
-              value={title}
-              onChange={event => setTitle(event.target.value)}
-            />
-            <textarea
-              placeholder="Markdown content"
-              value={content}
-              onChange={event => setContent(event.target.value)}
-              required
-            />
-            <div className="notes-form-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={isPublic}
-                  onChange={event => setIsPublic(event.target.checked)}
-                />
-                Public
-              </label>
-              <select
-                value={endVerseId || ""}
-                onChange={event => setEndVerseId(event.target.value || null)}
-              >
-                <option value="">Single verse</option>
-                {verseOptions.map(option => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <input
-              type="text"
-              placeholder="Tags (comma-separated)"
-              value={tags}
-              onChange={e => setTags(e.target.value)}
-            />
-            <button type="submit" disabled={!selectedVerse}>
-              Create note
-            </button>
-          </form>
-        ) : (
-          <div className="empty-state">Login to create notes.</div>
-        )}
+        {/* Note creation form removed per request; use the + button in Bible per-verse */}
 
         {noteError ? <div className="error-text">{noteError}</div> : null}
 
@@ -399,7 +349,10 @@ function NotesPane({
               return (
                 <div key={`row-${v.id}`} className="note-row" data-sync-verse={v.verse}>
                   {verseNotes.length === 0 ? (
-                    <div className="note-card empty" />
+                    <div className="note-card empty">
+                      <div className="empty-text">No notes for this verse yet.</div>
+                      <div className="note-meta empty-ref">{book} {v.chapter}:{v.verse}</div>
+                    </div>
                   ) : null}
                   {verseNotes.map(note => (
                     <div key={note.id} className="note-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse}>
