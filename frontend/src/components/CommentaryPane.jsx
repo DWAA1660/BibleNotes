@@ -58,12 +58,10 @@ function CommentaryPane({
     try { window.dispatchEvent(new CustomEvent("open-verse", { detail: { book: b, chapter: c, verse: v } })); } catch {}
   };
   // Expandable toggles
-  const [commBacklinksOpen, setCommBacklinksOpen] = useState(() => {
-    try { return localStorage.getItem("commentaryBacklinksOpen") === "1"; } catch { return false; }
-  });
-  const toggleCommBacklinks = (val) => {
-    setCommBacklinksOpen(val);
-    try { localStorage.setItem("commentaryBacklinksOpen", val ? "1" : "0"); } catch {}
+  // Per-verse backlinks open state (so only that verse row expands)
+  const [openBacklinks, setOpenBacklinks] = useState({});
+  const toggleBacklinksForVerse = (verseNumber) => {
+    setOpenBacklinks(prev => ({ ...prev, [verseNumber]: !prev[verseNumber] }));
   };
   const listRef = useRef(null);
   const contentRef = useRef(null);
@@ -190,7 +188,7 @@ function CommentaryPane({
       window.removeEventListener('resize', rAF);
       try { if (ro) ro.disconnect(); } catch {}
     };
-  }, [syncNotes, activeTab, book, chapter, verses, authorNotes, extraTopMargin, commBacklinksOpen, sortedBacklinks.length]);
+  }, [syncNotes, activeTab, book, chapter, verses, authorNotes, extraTopMargin, sortedBacklinks.length, JSON.stringify(openBacklinks)]);
 
   return (
     <div className="pane">
@@ -247,21 +245,25 @@ function CommentaryPane({
               <div className="entries-list" ref={listRef} style={{ marginTop: extraTopMargin ? `${extraTopMargin}px` : undefined }}>
                 {Array.isArray(verses) && verses.length ? verses.map(v => {
                   const verseNotes = authorNotes.filter(n => Number(n.start_verse) === Number(v.verse));
+                  const canon = v.canonical_id;
+                  const verseBacklinks = Array.isArray(authorNotes) && canon
+                    ? authorNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(canon))
+                    : [];
+                  const isOpen = !!openBacklinks[v.verse];
                   return (
                     <div key={`row-${v.id}`} className="entry-row" data-sync-verse={v.verse}>
+                      {/* Always show backlinks toggle with count */}
+                      <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
+                        <span>Backlinks {`(${verseBacklinks.length})`}</span>
+                        <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
+                      </div>
                       {verseNotes.length === 0 ? (
                         <div className="entry-card empty">
-                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && sortedBacklinks.length ? (
-                            <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleCommBacklinks(!commBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCommBacklinks(!commBacklinksOpen); }}}>
-                              <span>Backlinks {sortedBacklinks.length ? `(${sortedBacklinks.length})` : ''}</span>
-                              <span className={`caret ${commBacklinksOpen ? 'open' : ''}`}>▾</span>
-                            </div>
-                          ) : null}
-                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && commBacklinksOpen && sortedBacklinks.length ? (
+                          {isOpen && verseBacklinks.length ? (
                             <div className="backlinks-box">
                               <div className="backlinks-title">Backlinks</div>
                               <div className="backlinks-list">
-                                {sortedBacklinks.map(b => (
+                                {verseBacklinks.map(b => (
                                   <div key={b.id} className="backlink-item" onClick={() => openNoteAnchor(b)} style={{ cursor: 'pointer' }}>
                                     <div className="note-title" style={{ fontWeight: 600 }}>{b.title || 'Untitled'}</div>
                                     <div className="note-meta">{b.start_book} {b.start_chapter}:{b.start_verse}</div>
@@ -277,17 +279,11 @@ function CommentaryPane({
                           <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
                           <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
                           <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
-                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && sortedBacklinks.length ? (
-                            <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleCommBacklinks(!commBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCommBacklinks(!commBacklinksOpen); }}}>
-                              <span>Backlinks {sortedBacklinks.length ? `(${sortedBacklinks.length})` : ''}</span>
-                              <span className={`caret ${commBacklinksOpen ? 'open' : ''}`}>▾</span>
-                            </div>
-                          ) : null}
-                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && commBacklinksOpen && sortedBacklinks.length ? (
+                          {idx === 0 && isOpen && verseBacklinks.length ? (
                             <div className="backlinks-box">
                               <div className="backlinks-title">Backlinks</div>
                               <div className="backlinks-list">
-                                {sortedBacklinks.map(b => (
+                                {verseBacklinks.map(b => (
                                   <div key={b.id} className="backlink-item" onClick={() => openNoteAnchor(b)} style={{ cursor: 'pointer' }}>
                                     <div className="note-title" style={{ fontWeight: 600 }}>{b.title || 'Untitled'}</div>
                                     <div className="note-meta">{b.start_book} {b.start_chapter}:{b.start_verse}</div>
