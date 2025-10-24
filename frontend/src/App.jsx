@@ -704,7 +704,7 @@ function App() {
                   isLoading={isLoadingNotes}
                   isAuthenticated={Boolean(authToken)}
                   currentUser={profileData || null}
-                  backlinks={Boolean(authToken) && profileData ? backlinks.filter(b => b.note_owner_id === profileData.id) : []}
+                  backlinks={backlinks}
                   isLoadingBacklinks={isLoadingBacklinks}
                 />
                 <BiblePane
