@@ -179,6 +179,12 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     function onCommTop(e) {
       const d = e.detail || {};
       if (d.book !== chapterData.book || Number(d.chapter) !== Number(chapterData.chapter)) return;
+      const header = Number(d.headerOffset) || 0;
+      if (header > 0) {
+        const desired = Math.max(0, Math.round(header));
+        setCommentarySpacer(prev => (Math.abs(prev - desired) > 1 ? desired : prev));
+        return;
+      }
       const desired = Math.max(0, Math.round((Number(d.topOffset) || 0) - (baseTopOffsetRef.current || 0)));
       setCommentarySpacer(prev => (Math.abs(prev - desired) > 1 ? desired : prev));
     }

@@ -152,8 +152,7 @@ function CommentaryPane({
       }
       const rawTop = list.getBoundingClientRect().top - container.getBoundingClientRect().top;
       const baseTop = rawTop - (extraTopMargin || 0);
-      const headerH = (controlsRef.current && controlsRef.current.offsetHeight) || 0;
-      const target = Math.max(0, (Number(d.topOffset) || 0) - headerH);
+      const target = Math.max(0, (Number(d.topOffset) || 0));
       const desired = Math.round(target - baseTop);
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
@@ -181,7 +180,7 @@ function CommentaryPane({
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
       const headerH = (controlsRef.current && controlsRef.current.offsetHeight) || 0;
-      try { window.dispatchEvent(new CustomEvent('commentary-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) + headerH } })); } catch {}
+      try { window.dispatchEvent(new CustomEvent('commentary-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) + headerH, headerOffset: headerH } })); } catch {}
     }
     const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
     rAF();
@@ -230,6 +229,7 @@ function CommentaryPane({
       <div
         className="commentary-controls"
         style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}
+        ref={controlsRef}
       >
         <label htmlFor="commSelect">Select commentator:</label>
         <select

@@ -87,6 +87,8 @@ function NotesPane({
   const listRef = useRef(null);
   const contentRef = useRef(null);
   const [extraTopMargin, setExtraTopMargin] = useState(0);
+  const lastBibleTopOffsetRef = useRef(0);
+  const commHeaderSpacerRef = useRef(0);
   const scrollToVerseNote = (verseNumber) => {
     const container = contentRef.current;
     const list = listRef.current;
@@ -210,6 +212,7 @@ function NotesPane({
     function onBibleHeights(e) {
       const d = e.detail || {};
       if (d.book !== book || Number(d.chapter) !== Number(chapter)) return;
+      lastBibleTopOffsetRef.current = Number(d.topOffset) || 0;
       const list = listRef.current; const container = contentRef.current;
       if (!list || !container) return;
       const items = Array.from(list.querySelectorAll('[data-sync-verse]'));
@@ -222,8 +225,9 @@ function NotesPane({
       }
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
-      const target = Number(d.topOffset) || 0;
-      const desired = Math.max(0, Math.round(target - baseTop));
+      const header = commHeaderSpacerRef.current || 0;
+      const target = lastBibleTopOffsetRef.current;
+      const desired = Math.max(0, Math.round(target - baseTop + header));
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
     window.addEventListener('bible-verse-heights', onBibleHeights);
@@ -237,9 +241,10 @@ function NotesPane({
       if (d.book !== book || Number(d.chapter) !== Number(chapter)) return;
       const list = listRef.current; const container = contentRef.current;
       if (!list || !container) return;
+      commHeaderSpacerRef.current = Math.max(0, Number(d.headerOffset) || 0);
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
-      const desired = Math.max(0, Math.round((Number(d.topOffset) || 0) - baseTop));
+      const desired = Math.max(0, Math.round((lastBibleTopOffsetRef.current || 0) - baseTop + (commHeaderSpacerRef.current || 0)));
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
     window.addEventListener('commentary-verse-heights', onCommTop);
