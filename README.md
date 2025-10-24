@@ -105,7 +105,9 @@ pip install -r backend/requirements.txt
 # 2. Initialize the database
 python3 -m backend.app.database --init
 
-# 3. Seed at least one version (example: ESV)
+# 3. Seed all versions
+python3 backend/seeds/seed_bible.py --db backend/bible_notes.db --all --force
+# Seed one version
 python3 backend/seeds/seed_bible.py --db backend/bible_notes.db --version ESV
 ```
 
@@ -216,6 +218,47 @@ npm run dev -- --host
 ```
 
 Then open `http://localhost:5173/` (or the network URL Vite prints) in your browser while the backend API is running on port `8000`.
+
+### Frontend Production
+
+Build the React app and serve the static files in `frontend/dist` with any web server.
+
+```bash
+cd frontend
+npm install
+npm run build   # outputs to frontend/dist
+
+# Quick local preview (simulates production):
+npm run preview -- --host
+```
+
+Serve `frontend/dist` from your production web server. Example Nginx config:
+
+```
+server {
+    listen 80;
+    server_name yourdomain.example;
+
+    root /srv/biblenotes/frontend/dist;
+    index index.html;
+
+    location / {
+        try_files $uri /index.html;  # SPA fallback
+    }
+
+    # Proxy API requests to FastAPI (adjust if you serve API elsewhere)
+    location /bible/ { proxy_pass http://127.0.0.1:8000/bible/; }
+    location /notes/ { proxy_pass http://127.0.0.1:8000/notes/; }
+    location /auth/  { proxy_pass http://127.0.0.1:8000/auth/; }
+    location /users/ { proxy_pass http://127.0.0.1:8000/users/; }
+    location /manuscripts/ { proxy_pass http://127.0.0.1:8000/manuscripts/; }
+}
+```
+
+Notes:
+
+- Ensure the backend FastAPI app is reachable by the same domain or via the above proxy rules to avoid CORS issues.
+- If you deploy API and frontend under different domains, configure CORS in the backend accordingly.
 
 ### Environment Variables
 

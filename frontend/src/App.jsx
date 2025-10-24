@@ -263,6 +263,14 @@ function App() {
             n.start_book === selectedBook &&
             n.start_chapter === selectedChapter
           );
+          const order = new Map(BOOKS.map((b, i) => [b, i]));
+          filtered.sort((a, b) => {
+            const ai = order.get(a.start_book) ?? 999;
+            const bi = order.get(b.start_book) ?? 999;
+            if (ai !== bi) return ai - bi;
+            if (a.start_chapter !== b.start_chapter) return a.start_chapter - b.start_chapter;
+            return a.start_verse - b.start_verse;
+          });
           setNotes(filtered);
         } else {
           setNotes([]);
@@ -345,7 +353,20 @@ function App() {
       setIsLoadingCommentaries(true);
       try {
         const data = await api.fetchAuthorNotes(selectedAuthorId);
-        setAuthorNotes(Array.isArray(data?.notes) ? data.notes : []);
+        const arr = Array.isArray(data?.notes) ? data.notes : [];
+        const order = new Map(BOOKS.map((b, i) => [b, i]));
+        arr.sort((a, b) => {
+          const ai = order.get(a.start_book) ?? 999;
+          const bi = order.get(b.start_book) ?? 999;
+          if (ai !== bi) return ai - bi;
+          const ac = Number(a.start_chapter) || 0;
+          const bc = Number(b.start_chapter) || 0;
+          if (ac !== bc) return ac - bc;
+          const av = Number(a.start_verse) || 0;
+          const bv = Number(b.start_verse) || 0;
+          return av - bv;
+        });
+        setAuthorNotes(arr);
       } catch {
         setAuthorNotes([]);
       } finally {
@@ -389,7 +410,20 @@ function App() {
     setIsLoadingCommentaries(true);
     try {
       const data = await api.fetchAuthorNotes(id);
-      setAuthorNotes(Array.isArray(data?.notes) ? data.notes : []);
+      const arr = Array.isArray(data?.notes) ? data.notes : [];
+      const order = new Map(BOOKS.map((b, i) => [b, i]));
+      arr.sort((a, b) => {
+        const ai = order.get(a.start_book) ?? 999;
+        const bi = order.get(b.start_book) ?? 999;
+        if (ai !== bi) return ai - bi;
+        const ac = Number(a.start_chapter) || 0;
+        const bc = Number(b.start_chapter) || 0;
+        if (ac !== bc) return ac - bc;
+        const av = Number(a.start_verse) || 0;
+        const bv = Number(b.start_verse) || 0;
+        return av - bv;
+      });
+      setAuthorNotes(arr);
     } catch {
       setAuthorNotes([]);
     } finally {
@@ -587,6 +621,14 @@ function App() {
                           n.start_book === selectedBook &&
                           n.start_chapter === selectedChapter
                         );
+                        const order = new Map(BOOKS.map((b, i) => [b, i]));
+                        filtered.sort((a, b) => {
+                          const ai = order.get(a.start_book) ?? 999;
+                          const bi = order.get(b.start_book) ?? 999;
+                          if (ai !== bi) return ai - bi;
+                          if (a.start_chapter !== b.start_chapter) return a.start_chapter - b.start_chapter;
+                          return a.start_verse - b.start_verse;
+                        });
                         setNotes(filtered);
                       }
                     } catch (e) {

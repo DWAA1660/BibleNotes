@@ -24,6 +24,28 @@ function CommentaryPane({
   const backlinks = Array.isArray(authorNotes) && selectedCanon
     ? authorNotes.filter(n => Array.isArray(n.cross_references) && n.cross_references.includes(selectedCanon))
     : [];
+  const BOOKS = [
+    "Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth",
+    "1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther",
+    "Job","Psalms","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations",
+    "Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk",
+    "Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans",
+    "1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians",
+    "2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter","2 Peter",
+    "1 John","2 John","3 John","Jude","Revelation"
+  ];
+  const order = new Map(BOOKS.map((b, i) => [b, i]));
+  const sortedBacklinks = [...backlinks].sort((a, b) => {
+    const ai = order.get(a.start_book) ?? 999;
+    const bi = order.get(b.start_book) ?? 999;
+    if (ai !== bi) return ai - bi;
+    const ac = Number(a.start_chapter) || 0;
+    const bc = Number(b.start_chapter) || 0;
+    if (ac !== bc) return ac - bc;
+    const av = Number(a.start_verse) || 0;
+    const bv = Number(b.start_verse) || 0;
+    return av - bv;
+  });
 
   const openNoteAnchor = note => {
     if (!note) return;
@@ -76,9 +98,9 @@ function CommentaryPane({
             </div>
             {isLoading ? (
               <div className="loading-state">Loading…</div>
-            ) : backlinks.length ? (
+            ) : sortedBacklinks.length ? (
               <div className="entries-list">
-                {backlinks.map(note => (
+                {sortedBacklinks.map(note => (
                   <div key={note.id} className="entry-card" onClick={() => openNoteAnchor(note)} style={{ cursor: 'pointer' }}>
                     <div className="note-meta">{note.start_book} {note.start_chapter}:{note.start_verse} · Updated {new Date(note.updated_at).toLocaleString()}</div>
                     <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
