@@ -273,14 +273,14 @@ function CommentaryPane({
                   const verseNotes = authorNotes.filter(n => Number(n.start_verse) === Number(v.verse));
                   return (
                     <div key={`row-${v.id}`} className="entry-row" data-sync-verse={v.verse}>
-                      {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) ? (
-                        <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleCommBacklinks(!commBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCommBacklinks(!commBacklinksOpen); }}}>
-                          <span>Backlinks {sortedBacklinks.length ? `(${sortedBacklinks.length})` : ''}</span>
-                          <span className={`caret ${commBacklinksOpen ? 'open' : ''}`}>▾</span>
-                        </div>
-                      ) : null}
                       {verseNotes.length === 0 ? (
                         <div className="entry-card empty">
+                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && sortedBacklinks.length ? (
+                            <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleCommBacklinks(!commBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCommBacklinks(!commBacklinksOpen); }}}>
+                              <span>Backlinks {sortedBacklinks.length ? `(${sortedBacklinks.length})` : ''}</span>
+                              <span className={`caret ${commBacklinksOpen ? 'open' : ''}`}>▾</span>
+                            </div>
+                          ) : null}
                           {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && commBacklinksOpen && sortedBacklinks.length ? (
                             <div className="backlinks-box">
                               <div className="backlinks-title">Backlinks</div>
@@ -301,6 +301,12 @@ function CommentaryPane({
                           <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
                           <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
                           <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && sortedBacklinks.length ? (
+                            <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleCommBacklinks(!commBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCommBacklinks(!commBacklinksOpen); }}}>
+                              <span>Backlinks {sortedBacklinks.length ? `(${sortedBacklinks.length})` : ''}</span>
+                              <span className={`caret ${commBacklinksOpen ? 'open' : ''}`}>▾</span>
+                            </div>
+                          ) : null}
                           {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && commBacklinksOpen && sortedBacklinks.length ? (
                             <div className="backlinks-box">
                               <div className="backlinks-title">Backlinks</div>
