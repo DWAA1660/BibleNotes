@@ -52,12 +52,9 @@ function NotesPane({
   // Client-side tag filter for the visible list
   const [activeTag, setActiveTag] = useState("");
   // Expandable backlinks within the selected verse row (My Notes)
-  const [notesBacklinksOpen, setNotesBacklinksOpen] = useState(() => {
-    try { return localStorage.getItem('notesBacklinksOpen') === '1'; } catch { return false; }
-  });
-  const toggleNotesBacklinks = (val) => {
-    setNotesBacklinksOpen(val);
-    try { localStorage.setItem('notesBacklinksOpen', val ? '1' : '0'); } catch {}
+  const [openBacklinks, setOpenBacklinks] = useState({});
+  const toggleBacklinksForVerse = (verseNumber) => {
+    setOpenBacklinks(prev => ({ ...prev, [verseNumber]: !prev[verseNumber] }));
   };
 
   // Build tag options from the current list so users can filter quickly
@@ -199,7 +196,7 @@ function NotesPane({
       window.removeEventListener('resize', rAF);
       try { if (ro) ro.disconnect(); } catch {}
     };
-  }, [syncNotes, book, chapter, verses, notes, activeTag, extraTopMargin, notesBacklinksOpen, backlinks, isLoadingBacklinks]);
+  }, [syncNotes, book, chapter, verses, notes, activeTag, extraTopMargin, JSON.stringify(openBacklinks)]);
 
   // Equalize verse row heights with Bible and align tops when syncNotes is on
   useEffect(() => {
@@ -316,39 +313,35 @@ function NotesPane({
             {verses.map(v => {
               const filtered = (activeTag ? notes.filter(n => Array.isArray(n.tags) && n.tags.includes(activeTag)) : notes);
               const verseNotes = filtered.filter(n => Number(n.start_verse) === Number(v.verse));
+              const verseBacklinks = Array.isArray(v.backlinks) ? v.backlinks : [];
+              const isOpen = !!openBacklinks[v.verse];
               return (
                 <div key={`row-${v.id}`} className="note-row" data-sync-verse={v.verse}>
                   {verseNotes.length === 0 ? (
                     <div className="note-card empty">
                       <div className="empty-text">No notes for this verse yet.</div>
                       <div className="note-meta empty-ref">{book} {v.chapter}:{v.verse}</div>
-                      {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && Array.isArray(backlinks) && backlinks.length ? (
-                        <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleNotesBacklinks(!notesBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNotesBacklinks(!notesBacklinksOpen); }}}>
-                          <span>Backlinks {Array.isArray(backlinks) ? `(${backlinks.length})` : ''}</span>
-                          <span className={`caret ${notesBacklinksOpen ? 'open' : ''}`}>▾</span>
-                        </div>
-                      ) : null}
-                      {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && notesBacklinksOpen ? (
-                        isLoadingBacklinks ? (
-                          <div className="backlinks-box">Loading backlinks…</div>
-                        ) : backlinks?.length ? (
-                          <div className="backlinks-box">
-                            <div className="backlinks-title">Backlinks</div>
-                            <div className="backlinks-list">
-                              {backlinks.map(b => (
-                                <div
-                                  key={b.note_id}
-                                  className="backlink-item"
-                                  onClick={() => { try { window.dispatchEvent(new CustomEvent('open-verse', { detail: { book: b.source_book, chapter: b.source_chapter, verse: b.source_verse } })); } catch {} }}
-                                  style={{ cursor: 'pointer' }}
-                                >
-                                  <div className="note-title" style={{ fontWeight: 600 }}>{b.note_title || 'Untitled'}</div>
-                                  <div className="note-meta">by {b.note_owner_name || 'Unknown'}{b.note_is_public ? '' : ' (private)'}{b.source_book && b.source_chapter && b.source_verse ? (<> · {b.source_book} {b.source_chapter}:{b.source_verse}</>) : null}</div>
-                                </div>
-                              ))}
-                            </div>
+                      <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
+                        <span>Backlinks ({verseBacklinks.length})</span>
+                        <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
+                      </div>
+                      {isOpen && verseBacklinks.length ? (
+                        <div className="backlinks-box">
+                          <div className="backlinks-title">Backlinks</div>
+                          <div className="backlinks-list">
+                            {verseBacklinks.map(b => (
+                              <div
+                                key={b.note_id}
+                                className="backlink-item"
+                                onClick={() => { try { window.dispatchEvent(new CustomEvent('open-verse', { detail: { book: b.source_book, chapter: b.source_chapter, verse: b.source_verse } })); } catch {} }}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <div className="note-title" style={{ fontWeight: 600 }}>{b.note_title || 'Untitled'}</div>
+                                <div className="note-meta">by {b.note_owner_name || 'Unknown'}{b.note_is_public ? '' : ' (private)'}{b.source_book && b.source_chapter && b.source_verse ? (<> · {b.source_book} {b.source_chapter}:{b.source_verse}</>) : null}</div>
+                              </div>
+                            ))}
                           </div>
-                        ) : null
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
@@ -431,33 +424,31 @@ function NotesPane({
                           <div style={{ marginTop: "0.5rem" }}>
                             <button type="button" onClick={() => beginEdit(note)}>Edit</button>
                           </div>
-                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && Array.isArray(backlinks) && backlinks.length ? (
-                            <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleNotesBacklinks(!notesBacklinksOpen)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNotesBacklinks(!notesBacklinksOpen); }}}>
-                              <span>Backlinks {Array.isArray(backlinks) ? `(${backlinks.length})` : ''}</span>
-                              <span className={`caret ${notesBacklinksOpen ? 'open' : ''}`}>▾</span>
-                            </div>
-                          ) : null}
-                          {selectedVerse && Number(v.verse) === Number(selectedVerse.verse) && idx === 0 && notesBacklinksOpen ? (
-                            isLoadingBacklinks ? (
-                              <div className="backlinks-box">Loading backlinks…</div>
-                            ) : backlinks?.length ? (
-                              <div className="backlinks-box">
-                                <div className="backlinks-title">Backlinks</div>
-                                <div className="backlinks-list">
-                                  {backlinks.map(b => (
-                                    <div
-                                      key={b.note_id}
-                                      className="backlink-item"
-                                      onClick={() => { try { window.dispatchEvent(new CustomEvent('open-verse', { detail: { book: b.source_book, chapter: b.source_chapter, verse: b.source_verse } })); } catch {} }}
-                                      style={{ cursor: 'pointer' }}
-                                    >
-                                      <div className="note-title" style={{ fontWeight: 600 }}>{b.note_title || 'Untitled'}</div>
-                                      <div className="note-meta">by {b.note_owner_name || 'Unknown'}{b.note_is_public ? '' : ' (private)'}{b.source_book && b.source_chapter && b.source_verse ? (<> · {b.source_book} {b.source_chapter}:{b.source_verse}</>) : null}</div>
-                                    </div>
-                                  ))}
-                                </div>
+                          {idx === 0 ? (
+                            <>
+                              <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
+                                <span>Backlinks ({verseBacklinks.length})</span>
+                                <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
                               </div>
-                            ) : null
+                              {isOpen && verseBacklinks.length ? (
+                                <div className="backlinks-box">
+                                  <div className="backlinks-title">Backlinks</div>
+                                  <div className="backlinks-list">
+                                    {verseBacklinks.map(b => (
+                                      <div
+                                        key={b.note_id}
+                                        className="backlink-item"
+                                        onClick={() => { try { window.dispatchEvent(new CustomEvent('open-verse', { detail: { book: b.source_book, chapter: b.source_chapter, verse: b.source_verse } })); } catch {} }}
+                                        style={{ cursor: 'pointer' }}
+                                      >
+                                        <div className="note-title" style={{ fontWeight: 600 }}>{b.note_title || 'Untitled'}</div>
+                                        <div className="note-meta">by {b.note_owner_name || 'Unknown'}{b.note_is_public ? '' : ' (private)'}{b.source_book && b.source_chapter && b.source_verse ? (<> · {b.source_book} {b.source_chapter}:{b.source_verse}</>) : null}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </>
                           ) : null}
                         </>
                       )}

@@ -254,9 +254,8 @@ function CommentaryPane({
                     <div key={`row-${v.id}`} className="entry-row" data-sync-verse={v.verse}>
                       {verseNotes.length === 0 ? (
                         <div className="entry-card empty">
-                          {/* Toggle inside the box */}
                           <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
-                            <span>Backlinks {`(${verseBacklinks.length})`}</span>
+                            <span>Backlinks ({verseBacklinks.length})</span>
                             <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
                           </div>
                           {isOpen && verseBacklinks.length ? (
@@ -279,25 +278,26 @@ function CommentaryPane({
                           <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
                           <div className="note-title" style={{ fontWeight: 600 }}>{note.title || "Untitled"}</div>
                           <div className="note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
-                          {/* Toggle inside the first card */}
                           {idx === 0 ? (
-                            <div className="backlinks-toggle" style={{ marginTop: '0.5rem' }} role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
-                              <span>Backlinks {`(${verseBacklinks.length})`}</span>
-                              <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
-                            </div>
-                          ) : null}
-                          {idx === 0 && isOpen && verseBacklinks.length ? (
-                            <div className="backlinks-box">
-                              <div className="backlinks-title">Backlinks</div>
-                              <div className="backlinks-list">
-                                {verseBacklinks.map(b => (
-                                  <div key={b.id} className="backlink-item" onClick={() => openNoteAnchor(b)} style={{ cursor: 'pointer' }}>
-                                    <div className="note-title" style={{ fontWeight: 600 }}>{b.title || 'Untitled'}</div>
-                                    <div className="note-meta">{b.start_book} {b.start_chapter}:{b.start_verse}</div>
-                                  </div>
-                                ))}
+                            <>
+                              <div className="backlinks-toggle" role="button" tabIndex={0} onClick={() => toggleBacklinksForVerse(v.verse)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBacklinksForVerse(v.verse); }}}>
+                                <span>Backlinks ({verseBacklinks.length})</span>
+                                <span className={`caret ${isOpen ? 'open' : ''}`}>▾</span>
                               </div>
-                            </div>
+                              {isOpen && verseBacklinks.length ? (
+                                <div className="backlinks-box">
+                                  <div className="backlinks-title">Backlinks</div>
+                                  <div className="backlinks-list">
+                                    {verseBacklinks.map(b => (
+                                      <div key={b.id} className="backlink-item" onClick={() => openNoteAnchor(b)} style={{ cursor: 'pointer' }}>
+                                        <div className="note-title" style={{ fontWeight: 600 }}>{b.title || 'Untitled'}</div>
+                                        <div className="note-meta">{b.start_book} {b.start_chapter}:{b.start_verse}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </>
                           ) : null}
                         </div>
                       ))}
