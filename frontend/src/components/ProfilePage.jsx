@@ -94,10 +94,12 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
     );
   }
 
+  const notes = Array.isArray(profile.notes) ? profile.notes : [];
+
   return (
     <div className="profile-page">
       <div className="profile-header">
-        <img src={profile.avatar_url} alt={profile.display_name || profile.email} className="profile-avatar" />
+        <img src={profile.avatar_url || ""} alt={profile.display_name || profile.email} className="profile-avatar" />
         <div className="profile-meta">
           <h1>{profile.display_name || profile.email}</h1>
           <p>{profile.email}</p>
@@ -125,8 +127,8 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
         </div>
       ) : null}
       <div className="profile-notes">
-        {profile.notes.length ? (
-          profile.notes.map(note => (
+        {notes.length ? (
+          notes.map(note => (
             <article key={note.id} className="profile-note">
               {editingId === note.id ? (
                 <form className="notes-form" onSubmit={e => { e.preventDefault(); saveEdit(note); }}>
