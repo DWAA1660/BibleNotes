@@ -1,3 +1,9 @@
+// Minimal API wrapper
+// - Adds JSON headers and Authorization bearer token when present
+// - All endpoints are relative to /api (FastAPI backend mounted under /api)
+// - Notes tags:
+//   - Create: include `tags` (comma-separated string) in the payload
+//   - Update: include `tags` to replace a note's tags (normalized server-side)
 const BASE_URL = "/api";
 let authToken = null;
 

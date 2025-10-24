@@ -24,10 +24,20 @@ from ..schemas import (
 from ..utils.markdown import render_markdown
 from ..utils.reference_parser import extract_canonical_ids
 
+# Notes API router
+# - CRUD for verse-anchored notes with cross references
+# - Tags: normalized, comma-separated in Note.tags_text; exposed as list on NoteRead
+# - Filtering: supports tag filtering via /notes/me?tag=... and on author endpoints
 router = APIRouter(prefix="/notes", tags=["notes"])
 
 
 def _normalize_tags(raw: Optional[str]) -> str:
+    """Normalize a comma-separated tag string to a canonical, deduped form.
+    - trim whitespace, lowercase
+    - remove empties
+    - preserve first-seen order
+    Returns a single comma-joined string (stored in DB as Note.tags_text).
+    """
     if not raw:
         return ""
     parts = [p.strip().lower() for p in raw.split(",")]
@@ -84,6 +94,11 @@ def _verses_text_for_note(session: Session, note: Note) -> list[str]:
 
 
 def serialize_note(session: Session, note: Note) -> NoteRead:
+    """Project a Note ORM into the NoteRead schema, including:
+    - derived verse list for the range
+    - tags: split Note.tags_text into a list
+    - owner label and cross references
+    """
     verses_text = _verses_text_for_note(session, note)
     tags = [t for t in (note.tags_text or "").split(",") if t]
     return NoteRead(
@@ -168,6 +183,7 @@ def fetch_author_notes(
             stmt = stmt.where(Verse.chapter == chapter)
 
     if tag:
+        # Filter by a single normalized tag (exact token match within the CSV field)
         t = tag.strip().lower()
         if t:
             stmt = stmt.where(
@@ -472,7 +488,7 @@ def create_note(
         end_verse_id=payload.end_verse_id,
         is_public=payload.is_public,
     )
-    # apply tags
+    # Apply normalized tags from optional payload.tags
     note.tags_text = _normalize_tags(payload.tags)
     session.add(note)
     session.flush()
@@ -528,7 +544,7 @@ def update_note(
             raise HTTPException(status_code=400, detail="End verse must be after start verse")
         note.end_verse_id = payload.end_verse_id
 
-    # Update tags if provided
+    # Update tags if provided (normalize and persist to Note.tags_text)
     if payload.tags is not None:
         note.tags_text = _normalize_tags(payload.tags)
 

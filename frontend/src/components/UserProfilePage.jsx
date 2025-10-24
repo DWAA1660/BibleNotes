@@ -1,3 +1,10 @@
+// Public Author Page
+// - Displays notes written by a specific author (public notes by default).
+// - If the viewer is also the author and authenticated, includes their private notes by
+//   attempting to load /users/me/profile for richer data.
+// - Provides client-side filters: Tag, Book, Chapter, Verse, and free-text search.
+// - Tag dropdown is populated from all tags detected on the loaded notes.
+// - Clicking a reference navigates to the verse in the main reading view.
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PropTypes from "prop-types";
@@ -57,7 +64,7 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
     return () => { cancelled = true; };
   }, [authorId]);
 
-  // filters
+  // Filters state (all client-side)
   const [book, setBook] = useState("");
   const [chapter, setChapter] = useState("");
   const [verse, setVerse] = useState("");
@@ -72,6 +79,9 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
 
   useEffect(() => {
     let cancelled = false;
+    // Load author notes. If the viewer is the same as the author and authenticated,
+    // prefer /users/me/profile to include private notes; otherwise fall back to
+    // /notes/authors/{id} which returns public (and own private if authorized).
     async function load() {
       setIsLoading(true);
       setError("");
@@ -114,6 +124,7 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
     return subscriptions?.some(s => s.author_id === authorId);
   }, [subscriptions, authorId]);
 
+  // Apply client-side filtering across tag, location (book/chapter/verse), and text.
   const filtered = useMemo(() => {
     return notes.filter(n => {
       if (activeTag && !(Array.isArray(n.tags) && n.tags.includes(activeTag))) return false;
@@ -130,6 +141,7 @@ function UserProfilePage({ onSelectAsCommentator, isAuthenticated, subscriptions
   }, [notes, activeTag, book, chapter, verse, text]);
 
   const uniqueBooks = useMemo(() => Array.from(new Set(notes.map(n => n.start_book))), [notes]);
+  // Build the unique tag list from the currently loaded notes (used to populate dropdown)
   const tagOptions = useMemo(() => {
     const set = new Set();
     (notes || []).forEach(n => {

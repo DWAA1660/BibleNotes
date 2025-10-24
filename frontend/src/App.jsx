@@ -1,3 +1,12 @@
+// App shell
+// - Manages global state: selected version/book/chapter/verse, auth token, panes, and subscriptions.
+// - Routes:
+//   /            => main 3-pane view (NotesPane · BiblePane · Right pane: Commentaries/Manuscripts/Concordance)
+//   /search      => search page for users/commentaries
+//   /users/:id   => public user page (author profile)
+//   /profile     => private profile page (logged-in user's own notes)
+// - NotesPane receives only the user's notes for the current chapter (filtered here after /notes/me).
+// - Handles note create/update by calling backend APIs, then refreshes notes/profile data.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, setToken } from "./api.js";

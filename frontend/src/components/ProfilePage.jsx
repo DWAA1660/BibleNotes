@@ -1,3 +1,9 @@
+// Private Profile Page (current logged-in user)
+// - Shows the authenticated user's own notes (private + public).
+// - Allows inline editing of notes (title, content, privacy, range, tags).
+// - Provides client-side filters: Tag, Book, Chapter, Verse, free-text search.
+// - Differs from UserProfilePage (public author view): this page includes subscriptions
+//   management and always operates on the viewer's own data.
 import PropTypes from "prop-types";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -47,6 +53,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
   const [verse, setVerse] = useState("");
   const [text, setText] = useState("");
 
+  // Navigate to a verse in the main reading view
   const openVerse = (book, chapter, verse, version) => {
     if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse)) return;
     try {
@@ -54,6 +61,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
     } catch {}
   };
 
+  // Begin editing: seed all edit fields and fetch end-verse options for range
   const beginEdit = async note => {
     setEditingId(note.id);
     setEditTitle(note.title || "");
@@ -71,6 +79,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
     }
   };
 
+  // Cancel editing and reset state
   const cancelEdit = () => {
     setEditingId(null);
     setEditTitle("");
@@ -81,6 +90,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
     setEditTags("");
   };
 
+  // Persist edits by calling onUpdateNote with only changed fields
   const saveEdit = async original => {
     const payload = {};
     if ((editTitle || "") !== (original.title || "")) payload.title = editTitle;

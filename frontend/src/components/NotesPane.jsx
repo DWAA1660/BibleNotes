@@ -1,4 +1,11 @@
+// Notes Pane (left column)
+// - Shows ONLY the logged-in user's notes for the currently selected chapter
+//   (chapter scoping is handled by the parent App when it loads /notes/me and filters).
+// - Allows creating and editing notes, including setting tags (comma-separated).
+// - Tags are persisted to the backend and displayed per-note; a simple footer dropdown
+//   allows client-side filtering by a single tag.
 import PropTypes from "prop-types";
+
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 
@@ -38,8 +45,10 @@ function NotesPane({
   const [editEndVerseId, setEditEndVerseId] = useState(null);
   const [editEndOptions, setEditEndOptions] = useState([]);
   const [editTags, setEditTags] = useState("");
+  // Client-side tag filter for the visible list
   const [activeTag, setActiveTag] = useState("");
 
+  // Build tag options from the current list so users can filter quickly
   const tagOptions = useMemo(() => {
     const set = new Set();
     (notes || []).forEach(n => {
@@ -61,6 +70,7 @@ function NotesPane({
     return verses.slice(startIndex).map(verse => ({ id: verse.id, label: `${verse.chapter}:${verse.verse}` }));
   }, [verses, selectedVerse]);
 
+  // Create a new note spanning from selectedVerse to endVerseId (if set)
   const handleSubmit = event => {
     event.preventDefault();
     if (!selectedVerse) {
@@ -83,6 +93,7 @@ function NotesPane({
   // Backlinks in chapter payload are note metadata (not verse references)
   // Format as "Title · by Author" and optionally indicate privacy
 
+  // Begin editing: preload title/content/privacy/tags and build end-verse options for range
   const beginEdit = async note => {
     setEditingNoteId(note.id);
     setEditTitle(note.title || "");
@@ -100,6 +111,7 @@ function NotesPane({
     }
   };
 
+  // Reset edit state
   const cancelEdit = () => {
     setEditingNoteId(null);
     setEditTitle("");
@@ -110,6 +122,7 @@ function NotesPane({
     setEditTags("");
   };
 
+  // Call parent onUpdateNote with only the changed fields
   const saveEdit = async original => {
     const payload = {};
     if ((editTitle || "") !== (original.title || "")) payload.title = editTitle;
