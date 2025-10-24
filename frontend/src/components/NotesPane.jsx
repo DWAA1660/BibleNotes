@@ -31,7 +31,10 @@ function NotesPane({
   currentUser = null,
   backlinks = [],
   isLoadingBacklinks = false,
-  syncNotes = false
+  syncNotes = false,
+  onToggleSync = () => {},
+  book,
+  chapter
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -149,11 +152,50 @@ function NotesPane({
   // Do not auto-scroll on selectedVerse changes (clicks should not scroll notes)
   useEffect(() => {}, [selectedVerse?.id, notes?.length]);
 
+  // Measure per-verse row heights and broadcast to Bible when Sync Notes is on
+  useEffect(() => {
+    if (!syncNotes) return;
+    function measureAndEmit() {
+      const list = listRef.current; const container = contentRef.current;
+      if (!list || !container) return;
+      const rows = Array.from(list.querySelectorAll('[data-sync-verse]'));
+      const heights = {};
+      for (const el of rows) {
+        const v = Number(el.getAttribute('data-sync-verse')) || 0;
+        const prev = el.style.minHeight; if (prev) el.style.minHeight = '';
+        const h = el.getBoundingClientRect().height;
+        if (prev) el.style.minHeight = prev;
+        if (v) heights[v] = h;
+      }
+      const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
+      try {
+        window.dispatchEvent(new CustomEvent('notes-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) } }));
+      } catch {}
+    }
+    const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
+    rAF();
+    window.addEventListener('resize', rAF);
+    let ro;
+    try {
+      if (window.ResizeObserver) {
+        ro = new ResizeObserver(() => rAF());
+        if (contentRef.current) ro.observe(contentRef.current);
+        if (listRef.current) ro.observe(listRef.current);
+      }
+    } catch {}
+    return () => {
+      window.removeEventListener('resize', rAF);
+      try { if (ro) ro.disconnect(); } catch {}
+    };
+  }, [syncNotes, book, chapter, verses, notes, activeTag, extraTopMargin]);
+
   // Equalize verse row heights with Bible and align tops when syncNotes is on
   useEffect(() => {
     if (!syncNotes) return;
     function onBibleHeights(e) {
       const d = e.detail || {};
+      if (d.book !== book || Number(d.chapter) !== Number(chapter)) return;
       const list = listRef.current; const container = contentRef.current;
       if (!list || !container) return;
       const items = Array.from(list.querySelectorAll('[data-sync-verse]'));
@@ -247,7 +289,12 @@ function NotesPane({
 
   return (
     <div className="pane">
-      <div className="pane-header">My Notes</div>
+      <div className="pane-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+        <div>My Notes</div>
+        <label style={{ fontWeight: 400 }}>
+          <input type="checkbox" checked={Boolean(syncNotes)} onChange={onToggleSync} /> Sync Notes
+        </label>
+      </div>
       <div className="pane-content" ref={contentRef}>
         {selectedVerse ? (
           <div className="note-context">
@@ -351,6 +398,9 @@ function NotesPane({
               const verseNotes = filtered.filter(n => Number(n.start_verse) === Number(v.verse));
               return (
                 <div key={`row-${v.id}`} className="note-row" data-sync-verse={v.verse}>
+                  {verseNotes.length === 0 ? (
+                    <div className="note-card empty" />
+                  ) : null}
                   {verseNotes.map(note => (
                     <div key={note.id} className="note-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse}>
                       {editingNoteId === note.id ? (
@@ -566,7 +616,10 @@ NotesPane.propTypes = {
   }),
   backlinks: PropTypes.array,
   isLoadingBacklinks: PropTypes.bool,
-  syncNotes: PropTypes.bool
+  syncNotes: PropTypes.bool,
+  onToggleSync: PropTypes.func,
+  book: PropTypes.string,
+  chapter: PropTypes.number
 };
 
 export default NotesPane;

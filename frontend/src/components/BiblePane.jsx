@@ -46,6 +46,9 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
   const stabilizingRef = useRef(false);
   const pendingSpacerRef = useRef(null);
   const lastTopVerseRef = useRef(null);
+  const notesHeightsRef = useRef({});
+  const commHeightsRef = useRef({});
+  const [heightsVersion, setHeightsVersion] = useState(0);
  
 
   // Measure Bible verse heights and broadcast to panes for equalization
@@ -87,7 +90,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     return () => clearTimeout(t);
   }, [activeTab, chapterData?.book, chapterData?.chapter]);
 
-  // Measure Bible verse heights and broadcast to Manuscripts for equalization
+  // Measure Bible verse heights and broadcast to Manuscripts/Sync Notes for equalization
   useEffect(() => {
     if (activeTab !== 'manuscripts' && !syncNotes) return;
     function measureAndEmit() {
@@ -95,28 +98,51 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       const container = contentRef.current;
       if (!list || !container || !chapterData) return;
       const items = Array.from(list.querySelectorAll('[data-verse]'));
-      const heights = {};
+      const baseHeights = {};
       for (const el of items) {
         const v = Number(el.getAttribute('data-verse'));
         const prevMinHeight = el.style.minHeight;
         if (prevMinHeight) el.style.minHeight = '';
         const rect = el.getBoundingClientRect().height;
         if (prevMinHeight) el.style.minHeight = prevMinHeight;
-        if (v) heights[v] = rect;
+        if (v) baseHeights[v] = rect;
       }
       // Base offset excludes any spacer we apply for alignment
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - topSpacerHeight);
       baseTopOffsetRef.current = baseTop;
+      // Equalize with external pane heights when syncNotes
+      const outHeights = {};
+      const notesMap = syncNotes ? (notesHeightsRef.current || {}) : {};
+      const commMap = syncNotes ? (commHeightsRef.current || {}) : {};
+      for (const el of items) {
+        const v = Number(el.getAttribute('data-verse'));
+        if (!v) continue;
+        const bi = baseHeights[v] || 0;
+        const ni = notesMap[v] || 0;
+        const ci = commMap[v] || 0;
+        outHeights[v] = Math.max(bi, ni, ci);
+      }
+      // Apply minHeight to our own rows to equalize with other panes
+      for (const el of items) {
+        const v = Number(el.getAttribute('data-verse'));
+        if (!v) continue;
+        const h = outHeights[v] || 0;
+        if ((activeTab === 'manuscripts' || syncNotes) && h) {
+          el.style.minHeight = `${Math.ceil(h)}px`;
+        } else if (!(activeTab === 'manuscripts' || syncNotes)) {
+          el.style.minHeight = '';
+        }
+      }
       // Emit only if changed enough to matter
-      const heightsKey = Object.keys(heights).sort().map(k => `${k}:${Math.round(heights[k])}`).join('|');
+      const heightsKey = Object.keys(outHeights).sort().map(k => `${k}:${Math.round(outHeights[k])}`).join('|');
       const last = lastBroadcastRef.current;
       const topChanged = Math.abs((last.top ?? -1) - baseTop) > 1;
       const heightsChanged = heightsKey !== last.hash;
       if (topChanged || heightsChanged) {
         lastBroadcastRef.current = { top: baseTop, hash: heightsKey };
         try {
-          window.dispatchEvent(new CustomEvent('bible-verse-heights', { detail: { book: chapterData.book, chapter: chapterData.chapter, heights, topOffset: baseTop } }));
+          window.dispatchEvent(new CustomEvent('bible-verse-heights', { detail: { book: chapterData.book, chapter: chapterData.chapter, heights: outHeights, topOffset: baseTop } }));
         } catch {}
       }
     }
@@ -124,7 +150,32 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     rAF();
     window.addEventListener('resize', rAF);
     return () => window.removeEventListener('resize', rAF);
-  }, [activeTab, chapterData, selectedVerseId, topSpacerHeight, syncNotes]);
+  }, [activeTab, chapterData, selectedVerseId, topSpacerHeight, syncNotes, heightsVersion]);
+
+  // Listen for Notes/Commentary height measurements during Sync Notes
+  useEffect(() => {
+    if (!syncNotes || !chapterData) return;
+    function onNotesHeights(e) {
+      const d = e.detail || {};
+      if (d.book !== chapterData.book || Number(d.chapter) !== Number(chapterData.chapter)) return;
+      notesHeightsRef.current = d.heights || {};
+      setHeightsVersion(v => v + 1);
+    }
+    function onCommHeights(e) {
+      const d = e.detail || {};
+      if (d.book !== chapterData.book || Number(d.chapter) !== Number(chapterData.chapter)) return;
+      commHeightsRef.current = d.heights || {};
+      setHeightsVersion(v => v + 1);
+    }
+    window.addEventListener('notes-verse-heights', onNotesHeights);
+    window.addEventListener('commentary-verse-heights', onCommHeights);
+    return () => {
+      window.removeEventListener('notes-verse-heights', onNotesHeights);
+      window.removeEventListener('commentary-verse-heights', onCommHeights);
+      notesHeightsRef.current = {};
+      commHeightsRef.current = {};
+    };
+  }, [syncNotes, chapterData?.book, chapterData?.chapter]);
 
   useEffect(() => {
     function onGoto(e) {

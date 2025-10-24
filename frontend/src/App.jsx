@@ -802,7 +802,6 @@ function App() {
           <button type="submit">Search</button>
         </form>
         <div className="header-actions">
-          <button type="button" className={syncNotes ? "active" : ""} onClick={() => setSyncNotes(v => !v)}>Sync Notes</button>
           {authToken ? (
             <>
               <button type="button" onClick={() => navigate("/profile")}>Profile</button>
@@ -944,6 +943,9 @@ function App() {
                   backlinks={backlinks}
                   isLoadingBacklinks={isLoadingBacklinks}
                   syncNotes={syncNotes}
+                  onToggleSync={() => setSyncNotes(v => !v)}
+                  book={selectedBook}
+                  chapter={selectedChapter}
                 />
                 <BiblePane
                   chapterData={chapterData}

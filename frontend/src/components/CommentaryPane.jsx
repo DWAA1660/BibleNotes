@@ -155,6 +155,41 @@ function CommentaryPane({
     return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
   }, [syncNotes, activeTab, extraTopMargin]);
 
+  useEffect(() => {
+    if (!syncNotes || activeTab !== 'commentaries') return;
+    function measureAndEmit() {
+      const list = listRef.current; const container = contentRef.current;
+      if (!list || !container) return;
+      const rows = Array.from(list.querySelectorAll('[data-sync-verse]'));
+      const heights = {};
+      for (const el of rows) {
+        const v = Number(el.getAttribute('data-sync-verse')) || 0;
+        const prev = el.style.minHeight; if (prev) el.style.minHeight = '';
+        const h = el.getBoundingClientRect().height;
+        if (prev) el.style.minHeight = prev;
+        if (v) heights[v] = h;
+      }
+      const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+      const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
+      try { window.dispatchEvent(new CustomEvent('commentary-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) } })); } catch {}
+    }
+    const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
+    rAF();
+    window.addEventListener('resize', rAF);
+    let ro;
+    try {
+      if (window.ResizeObserver) {
+        ro = new ResizeObserver(() => rAF());
+        if (contentRef.current) ro.observe(contentRef.current);
+        if (listRef.current) ro.observe(listRef.current);
+      }
+    } catch {}
+    return () => {
+      window.removeEventListener('resize', rAF);
+      try { if (ro) ro.disconnect(); } catch {}
+    };
+  }, [syncNotes, activeTab, book, chapter, verses, authorNotes, extraTopMargin]);
+
   return (
     <div className="pane">
       <div className="pane-header tabs-header">
@@ -252,6 +287,9 @@ function CommentaryPane({
                   const verseNotes = authorNotes.filter(n => Number(n.start_verse) === Number(v.verse));
                   return (
                     <div key={`row-${v.id}`} className="entry-row" data-sync-verse={v.verse}>
+                      {verseNotes.length === 0 ? (
+                        <div className="entry-card empty" />
+                      ) : null}
                       {verseNotes.map(note => (
                         <div key={note.id} className="entry-card" data-note-id={note.id} data-start-verse={note.start_verse} data-end-verse={note.end_verse || note.start_verse} data-book={note.start_book} data-chapter={note.start_chapter}>
                           <div className="note-meta">{formatReference(note)} · Updated {new Date(note.updated_at).toLocaleString()}</div>
