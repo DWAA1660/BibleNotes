@@ -599,7 +599,7 @@ function App() {
   }, [selectedAuthorId]);
 
   const handleSubscribeAuthor = async authorId => {
-    if (!authToken) return;
+    if (!authToken) { setIsAuthOpen(true); return; }
     try {
       const sub = await api.subscribeAuthor(authorId);
       setAuthorSubscriptions(prev => {
@@ -642,7 +642,7 @@ function App() {
   };
 
   const handleUnsubscribeAuthor = async authorId => {
-    if (!authToken) return;
+    if (!authToken) { setIsAuthOpen(true); return; }
     try {
       await api.unsubscribeAuthor(authorId);
       setAuthorSubscriptions(prev => prev.filter(s => s.author_id !== authorId));
@@ -810,20 +810,30 @@ function App() {
         </div>
       </header>
       {!authToken && isAuthOpen ? (
-        <form className="auth-form" onSubmit={handleAuthSubmit}>
-          <select value={authMode} onChange={event => setAuthMode(event.target.value)}>
-            <option value="login">Login</option>
-            <option value="signup">Signup</option>
-          </select>
-          <input name="email" type="email" placeholder="Email" required />
-          <input name="password" type="password" placeholder="Password" required />
-          {authMode === "signup" ? (
-            <input name="displayName" type="text" placeholder="Display name" />
-          ) : null}
-          <button type="submit">Submit</button>
-        </form>
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="pane-header" style={{ borderBottom: "none", padding: 0, marginBottom: "0.5rem" }}>
+              <div style={{ fontWeight: 600 }}>Login / Signup</div>
+            </div>
+            <form className="auth-form" onSubmit={handleAuthSubmit} style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              <select value={authMode} onChange={event => setAuthMode(event.target.value)}>
+                <option value="login">Login</option>
+                <option value="signup">Signup</option>
+              </select>
+              <input name="email" type="email" placeholder="Email" required />
+              <input name="password" type="password" placeholder="Password" required />
+              {authMode === "signup" ? (
+                <input name="displayName" type="text" placeholder="Display name" />
+              ) : null}
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                <button type="button" onClick={() => setIsAuthOpen(false)}>Cancel</button>
+                <button type="submit">Submit</button>
+              </div>
+            </form>
+            {!authToken && authError ? <div className="error-text" style={{ marginTop: "0.5rem" }}>{authError}</div> : null}
+          </div>
+        </div>
       ) : null}
-      {!authToken && authError ? <div className="error-text">{authError}</div> : null}
       {location.pathname === "/" ? (
         <VersionSelector
           versions={versions}
