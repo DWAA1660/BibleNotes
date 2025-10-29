@@ -90,8 +90,6 @@ function NotesPane({
   const [extraTopMargin, setExtraTopMargin] = useState(0);
   const lastBibleTopOffsetRef = useRef(0);
   const commHeaderSpacerRef = useRef(0);
-  const lastNotesBroadcastRef = useRef({ top: -1, hash: "" });
-  const notesStabilizingRef = useRef(false);
   const scrollToVerseNote = (verseNumber) => {
     const container = contentRef.current;
     const list = listRef.current;
@@ -170,14 +168,9 @@ function NotesPane({
   // Measure per-verse row heights and broadcast to Bible when Sync Notes is on
   useEffect(() => {
     if (!syncNotes) return;
-    if (activeTab !== 'commentaries' && activeTab !== 'manuscripts') return;
     function measureAndEmit() {
       const list = listRef.current; const container = contentRef.current;
       if (!list || !container) return;
-      if (activeTab === 'manuscripts' && notesStabilizingRef.current) {
-        try { console.log('[NotesPane] suppress emit (stabilizing manuscripts)'); } catch {}
-        return;
-      }
       const rows = Array.from(list.querySelectorAll('[data-sync-verse]'));
       const heights = {};
       for (const el of rows) {
@@ -192,12 +185,6 @@ function NotesPane({
       }
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
-      const heightsKey = Object.keys(heights).sort().map(k => `${k}:${Math.round(heights[k])}`).join('|');
-      const last = lastNotesBroadcastRef.current;
-      const topChanged = Math.abs((last.top ?? -1) - baseTop) > 1;
-      const heightsChanged = heightsKey !== last.hash;
-      if (!topChanged && !heightsChanged) return;
-      lastNotesBroadcastRef.current = { top: baseTop, hash: heightsKey };
       try { console.log('[NotesPane] emit notes-verse-heights', { book, chapter, count: Object.keys(heights).length, baseTop, extraTopMargin }); } catch {}
       try {
         window.dispatchEvent(new CustomEvent('notes-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) } }));
@@ -221,14 +208,13 @@ function NotesPane({
       window.removeEventListener('request-notes-verse-heights', onRequest);
       try { if (ro) ro.disconnect(); } catch {}
     };
-  }, [syncNotes, activeTab, book, chapter, verses, notes, activeTag, extraTopMargin, JSON.stringify(openBacklinks)]);
+  }, [syncNotes, book, chapter, verses, notes, activeTag, extraTopMargin, JSON.stringify(openBacklinks)]);
   // Note: We depend on openBacklinks (stringified) so verse-row height re-measures
   // when a backlinks section is expanded/collapsed, keeping Bible alignment accurate.
 
   // Equalize verse row heights with Bible and align tops when syncNotes is on
   useEffect(() => {
     if (!syncNotes) return;
-    if (activeTab !== 'commentaries' && activeTab !== 'manuscripts') return;
     function onBibleHeights(e) {
       const d = e.detail || {};
       if (d.book !== book || Number(d.chapter) !== Number(chapter)) return;
@@ -263,7 +249,7 @@ function NotesPane({
     }
     window.addEventListener('bible-verse-heights', onBibleHeights);
     return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
-  }, [syncNotes, activeTab, extraTopMargin]);
+  }, [syncNotes, extraTopMargin]);
 
   // On tab switch, reset commentary header spacer when leaving commentaries, and request re-measure
   useEffect(() => {
@@ -280,18 +266,6 @@ function NotesPane({
     if (activeTab !== 'commentaries' && activeTab !== 'manuscripts') {
       if (extraTopMargin !== 0) setExtraTopMargin(0);
     }
-    // For Manuscripts: begin stabilization immediately; delay kicks until after stabilization
-    if (activeTab === 'manuscripts') {
-      notesStabilizingRef.current = true;
-      const end = () => {
-        notesStabilizingRef.current = false;
-        try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
-        try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
-      };
-      const t = setTimeout(end, 400);
-      return () => { clearTimeout(t); notesStabilizingRef.current = false; };
-    }
-    // Other tabs: perform immediate kicks
     const kick = () => {
       try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
       try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
@@ -301,22 +275,8 @@ function NotesPane({
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [activeTab, syncNotes, book, chapter]);
 
-  // Stabilize on entering Manuscripts: suppress Notes emissions briefly
   useEffect(() => {
     if (!syncNotes) return;
-    if (activeTab !== 'manuscripts') return;
-    notesStabilizingRef.current = true;
-    const t = setTimeout(() => {
-      notesStabilizingRef.current = false;
-      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
-      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
-    }, 400);
-    return () => clearTimeout(t);
-  }, [activeTab, syncNotes, book, chapter]);
-
-  useEffect(() => {
-    if (!syncNotes) return;
-    if (activeTab !== 'commentaries') return;
     function onCommTop(e) {
       const d = e.detail || {};
       if (d.book !== book || Number(d.chapter) !== Number(chapter)) return;
@@ -341,7 +301,7 @@ function NotesPane({
     }
     window.addEventListener('commentary-verse-heights', onCommTop);
     return () => window.removeEventListener('commentary-verse-heights', onCommTop);
-  }, [syncNotes, activeTab, book, chapter, extraTopMargin]);
+  }, [syncNotes, book, chapter, extraTopMargin]);
 
   // Create a new note spanning from selectedVerse to endVerseId (if set)
   const handleSubmit = event => {
