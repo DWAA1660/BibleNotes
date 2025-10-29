@@ -257,6 +257,15 @@ function NotesPane({
     if (activeTab !== 'commentaries') {
       commHeaderSpacerRef.current = 0;
     }
+    // Scroll Notes to top on tab switches to avoid stale scroll positions
+    try {
+      const container = contentRef.current;
+      if (container) container.scrollTop = 0;
+    } catch {}
+    // When switching to Concordance (or any non-commentaries/manuscripts tab), clear margin so it anchors to top
+    if (activeTab !== 'commentaries' && activeTab !== 'manuscripts') {
+      if (extraTopMargin !== 0) setExtraTopMargin(0);
+    }
     const kick = () => {
       try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
       try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
