@@ -1,9 +1,13 @@
 // Private Profile Page (current logged-in user)
-// - Shows the authenticated user's own notes (private + public).
-// - Allows inline editing of notes (title, content, privacy, range, tags).
-// - Provides client-side filters: Tag, Book, Chapter, Verse, free-text search.
-// - Differs from UserProfilePage (public author view): this page includes subscriptions
-//   management and always operates on the viewer's own data.
+// Purpose
+// - Displays the authenticated user's own notes (private + public) with inline editing.
+// - Provides client-side filtering (Tag, Book, Chapter, Verse, free-text search).
+// - Includes subscriptions management (followed authors) unique to the private view.
+// Key pieces
+// - Helpers: formatReference, parseCanonId, parseVerseLine.
+// - Component state: edit form fields, filters, and simple UI booleans.
+// - Handlers: beginEdit/cancelEdit/saveEdit, openVerse navigation, unsubscribe.
+// - Rendering: profile header, subscriptions list, filters, and notes list.
 import PropTypes from "prop-types";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -38,6 +42,13 @@ function parseVerseLine(line) {
   return { chapter, verse, text: match[3] || "" };
 }
 
+// Component: ProfilePage
+// Props
+// - profile: current user's profile payload from backend (notes embedded)
+// - isOwnProfile: render edit/delete controls when true
+// - onUpdateNote: persist note updates to backend
+// - onDeleteNote: delete a note by id
+// - subscriptions/onUnsubscribeAuthor: manage followed authors
 function ProfilePage({ profile, isOwnProfile, onUpdateNote, onDeleteNote, subscriptions, onUnsubscribeAuthor }) {
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState(null);
@@ -53,7 +64,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, onDeleteNote, subscr
   const [verse, setVerse] = useState("");
   const [text, setText] = useState("");
 
-  // Navigate to a verse in the main reading view
+  // Navigate to a verse in the main reading view (dispatches a global event that App listens to)
   const openVerse = (book, chapter, verse, version) => {
     if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse)) return;
     try {
@@ -261,33 +272,35 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, onDeleteNote, subscr
                 </form>
               ) : (
                 <>
+                  {/* Title on its own line, with reference and verse text on the next line */}
                   <header className="profile-note-header">
                     <h2>{note.title || "Untitled"}</h2>
-                    <span className="note-meta">
-                      <button
-                        type="button"
-                        className="note-link"
-                        onClick={() => openVerse(note.start_book, note.start_chapter, note.start_verse, note.version_code)}
-                        aria-label={`Go to ${formatReference(note)}`}
-                      >
-                        {formatReference(note)}
-                      </button>
-                      {note.verses_text && note.verses_text.length ? (
-                        <span style={{ marginLeft: "0.5rem" }}>
-                          {note.verses_text.map((line, idx) => {
-                            const parsed = parseVerseLine(line);
-                            return (
-                              <span key={idx}>
-                                {idx > 0 ? " " : ""}
-                                {parsed ? parsed.text : line}
-                              </span>
-                            );
-                          })}
-                        </span>
-                      ) : null}
-                    </span>
                   </header>
+                  <div className="note-meta" style={{ marginTop: "0.25rem" }}>
+                    <button
+                      type="button"
+                      className="note-link"
+                      onClick={() => openVerse(note.start_book, note.start_chapter, note.start_verse, note.version_code)}
+                      aria-label={`Go to ${formatReference(note)}`}
+                    >
+                      {formatReference(note)}
+                    </button>
+                    {note.verses_text && note.verses_text.length ? (
+                      <span style={{ marginLeft: "0.5rem" }}>
+                        {note.verses_text.map((line, idx) => {
+                          const parsed = parseVerseLine(line);
+                          return (
+                            <span key={idx}>
+                              {idx > 0 ? " " : ""}
+                              {parsed ? parsed.text : line}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="profile-note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
+                  {/* Tags (client-side filterable) */}
                   {Array.isArray(note.tags) && note.tags.length ? (
                     <div className="note-meta">
                       Tags: {note.tags.map((t, idx) => (
@@ -298,6 +311,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, onDeleteNote, subscr
                       ))}
                     </div>
                   ) : null}
+                  {/* Cross references extracted from markdown and linked to open verse */}
                   {note.cross_references && note.cross_references.length ? (
                     <div className="note-meta">
                       References:{" "}
