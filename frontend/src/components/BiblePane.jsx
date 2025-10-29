@@ -113,9 +113,15 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       }
       // Base offset excludes any spacer we apply for alignment
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
-      const effectiveSpacer = activeTab === 'manuscripts' ? topSpacerHeight : (syncNotes ? commentarySpacer : 0);
+      // Only apply commentarySpacer when the Commentaries tab is active. When Sync Notes is on
+      // but Commentaries is not the active tab, Bible should act as the anchor (no spacer),
+      // and Notes aligns itself to Bible. This avoids baseTop oscillations.
+      const effectiveSpacer = activeTab === 'manuscripts'
+        ? topSpacerHeight
+        : (activeTab === 'commentaries' && syncNotes ? commentarySpacer : 0);
       const baseTop = Math.max(0, rawTop - effectiveSpacer);
       baseTopOffsetRef.current = baseTop;
+      try { console.log('[BiblePane] measure', { rawTop, effectiveSpacer, activeTab, syncNotes, baseTop }); } catch {}
       // Equalize with external pane heights when syncNotes
       const outHeights = {};
       const notesMap = syncNotes ? (notesHeightsRef.current || {}) : {};
@@ -409,7 +415,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
         ) : !chapterData ? (
           <div className="empty-state">Select a version, book, and chapter to begin.</div>
         ) : (
-          <div className="verse-list" ref={listRef} style={{ marginTop: activeTab === 'manuscripts' ? `${topSpacerHeight}px` : (syncNotes ? `${commentarySpacer}px` : undefined) }}>
+          <div className="verse-list" ref={listRef} style={{ marginTop: activeTab === 'manuscripts' ? `${topSpacerHeight}px` : (activeTab === 'commentaries' && syncNotes ? `${commentarySpacer}px` : undefined) }}>
             {chapterData.verses.map(verse => (
               <div
                 key={verse.id}
