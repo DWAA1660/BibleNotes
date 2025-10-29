@@ -122,6 +122,7 @@ function NotesPane({
       const d = e.detail || {};
       if (!d || !Number.isFinite(d.verse)) return;
       const verseNumber = Number(d.verse);
+      try { console.log('[NotesPane] recv bible-verse-selected', { verse: verseNumber, source: d.source, syncNotes }); } catch {}
       if (d.source === 'click') {
         // Highlight only on verse click, no scrolling
         if (syncNotes) {
@@ -183,6 +184,7 @@ function NotesPane({
       }
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
+      try { console.log('[NotesPane] emit notes-verse-heights', { book, chapter, count: Object.keys(heights).length, baseTop, extraTopMargin }); } catch {}
       try {
         window.dispatchEvent(new CustomEvent('notes-verse-heights', { detail: { book, chapter, heights, topOffset: baseTop + (extraTopMargin || 0) } }));
       } catch {}
@@ -220,17 +222,20 @@ function NotesPane({
       if (!list || !container) return;
       const items = Array.from(list.querySelectorAll('[data-sync-verse]'));
       const map = d.heights || {};
+      let applied = 0;
       for (const el of items) {
         const v = Number(el.getAttribute('data-sync-verse'));
         const h = Math.ceil(map[v] || 0);
         el.style.minHeight = '';
         el.style.height = h ? `${h}px` : '';
+        if (h) applied++;
       }
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
       const header = commHeaderSpacerRef.current || 0;
       const target = lastBibleTopOffsetRef.current;
       const desired = Math.max(0, Math.round(target - baseTop + header));
+      try { console.log('[NotesPane] recv bible-verse-heights', { applied, baseTop, header, target, desired, prevMargin: extraTopMargin }); } catch {}
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
     window.addEventListener('bible-verse-heights', onBibleHeights);
@@ -248,6 +253,7 @@ function NotesPane({
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
       const desired = Math.max(0, Math.round((lastBibleTopOffsetRef.current || 0) - baseTop + (commHeaderSpacerRef.current || 0)));
+      try { console.log('[NotesPane] recv commentary-verse-heights(top)', { header: commHeaderSpacerRef.current, baseTop, desired, prevMargin: extraTopMargin }); } catch {}
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
     window.addEventListener('commentary-verse-heights', onCommTop);

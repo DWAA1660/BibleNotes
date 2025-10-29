@@ -149,6 +149,16 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       if (topChanged || heightsChanged) {
         lastBroadcastRef.current = { top: baseTop, hash: heightsKey };
         try {
+          console.log('[BiblePane] emit bible-verse-heights', {
+            book: chapterData.book,
+            chapter: chapterData.chapter,
+            baseTop,
+            items: items.length,
+            heightsChanged,
+            topChanged
+          });
+        } catch {}
+        try {
           window.dispatchEvent(new CustomEvent('bible-verse-heights', { detail: { book: chapterData.book, chapter: chapterData.chapter, heights: outHeights, topOffset: baseTop } }));
         } catch {}
       }
@@ -171,12 +181,14 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       const d = e.detail || {};
       if (d.book !== chapterData.book || Number(d.chapter) !== Number(chapterData.chapter)) return;
       notesHeightsRef.current = d.heights || {};
+      try { console.log('[BiblePane] recv notes-verse-heights', { book: d.book, chapter: d.chapter, count: Object.keys(d.heights || {}).length }); } catch {}
       setHeightsVersion(v => v + 1);
     }
     function onCommHeights(e) {
       const d = e.detail || {};
       if (d.book !== chapterData.book || Number(d.chapter) !== Number(chapterData.chapter)) return;
       commHeightsRef.current = d.heights || {};
+      try { console.log('[BiblePane] recv commentary-verse-heights', { book: d.book, chapter: d.chapter, count: Object.keys(d.heights || {}).length }); } catch {}
       setHeightsVersion(v => v + 1);
     }
     window.addEventListener('notes-verse-heights', onNotesHeights);
@@ -187,10 +199,12 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       const header = Number(d.headerOffset) || 0;
       if (header > 0) {
         const desired = Math.max(0, Math.round(header));
+        try { console.log('[BiblePane] set commentarySpacer (header)', { desired, prev: commentarySpacer }); } catch {}
         setCommentarySpacer(prev => (Math.abs(prev - desired) > 1 ? desired : prev));
         return;
       }
       const desired = Math.max(0, Math.round((Number(d.topOffset) || 0) - (baseTopOffsetRef.current || 0)));
+      try { console.log('[BiblePane] set commentarySpacer (topOffset)', { desired, prev: commentarySpacer, baseTop: baseTopOffsetRef.current }); } catch {}
       setCommentarySpacer(prev => (Math.abs(prev - desired) > 1 ? desired : prev));
     }
     window.addEventListener('commentary-verse-heights', onCommTop);
@@ -279,6 +293,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
         }
         if (bestVerse && lastTopVerseRef.current !== bestVerse) {
           lastTopVerseRef.current = bestVerse;
+          try { console.log('[BiblePane] emit bible-verse-selected (scroll)', { verse: bestVerse, book: chapterData.book, chapter: chapterData.chapter }); } catch {}
           try {
             window.dispatchEvent(new CustomEvent('bible-verse-selected', { detail: { book: chapterData.book, chapter: chapterData.chapter, verse: bestVerse, source: "scroll" } }));
           } catch {}
