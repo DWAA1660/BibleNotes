@@ -272,6 +272,19 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, onDeleteNote, subscr
                       >
                         {formatReference(note)}
                       </button>
+                      {note.verses_text && note.verses_text.length ? (
+                        <span style={{ marginLeft: "0.5rem" }}>
+                          {note.verses_text.map((line, idx) => {
+                            const parsed = parseVerseLine(line);
+                            return (
+                              <span key={idx}>
+                                {idx > 0 ? " " : ""}
+                                {parsed ? parsed.text : line}
+                              </span>
+                            );
+                          })}
+                        </span>
+                      ) : null}
                     </span>
                   </header>
                   <div className="profile-note-body" dangerouslySetInnerHTML={{ __html: note.content_html }} />
@@ -308,32 +321,7 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, onDeleteNote, subscr
                       })}
                     </div>
                   ) : null}
-                  {note.verses_text && note.verses_text.length ? (
-                    <div className="verse-box">
-                      {note.verses_text.map((line, idx) => (
-                        <div key={idx} className="note-meta">
-                          {(() => {
-                            const parsed = parseVerseLine(line);
-                            if (!parsed) {
-                              return line;
-                            }
-                            return (
-                              <>
-                                <button
-                                  type="button"
-                                  className="note-link"
-                                  onClick={() => openVerse(note.start_book, parsed.chapter, parsed.verse, note.version_code)}
-                                >
-                                  {`${note.start_book} ${parsed.chapter}:${parsed.verse}`}
-                                </button>
-                                {parsed.text ? <span>{` ${parsed.text}`}</span> : null}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
+                  
                   {isOwnProfile ? (
                     <div style={{ marginTop: "0.5rem" }}>
                       <button type="button" onClick={() => beginEdit(note)}>Edit</button>
