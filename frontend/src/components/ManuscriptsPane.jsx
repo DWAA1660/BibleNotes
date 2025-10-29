@@ -18,6 +18,17 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
     }
   });
 
+  // Kick all panes to re-measure
+  const kickResync = () => {
+    const kick = () => {
+      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
+      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
+    };
+    kick();
+    requestAnimationFrame(kick);
+    setTimeout(kick, 60);
+  };
+
   const tokenize = text => (text || "").trim().split(/\s+/).filter(Boolean);
   const GREEK_STOP = new Set([
     "και","δε","γαρ","ο","η","το","οι","αι","τα","του","της","των","τω","τη","τοις","ταις","τον","την","τους","τας",
@@ -105,6 +116,8 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
           next = editions.length ? editions[0].code : "";
         }
         setSelectedEdition(next);
+        // Ensure panes measure for any edition change
+        kickResync();
       } catch {
         if (!cancelled) {
           setAvailable([]);
@@ -139,6 +152,8 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
         if (cancelled) return;
         setVerses(chapterData?.verses || []);
         setEditionMeta(chapterData?.edition || null);
+        // After new edition loads, force a fresh measurement burst
+        kickResync();
       } catch (e) {
         if (!cancelled) {
           setError(e.message || "Failed to load manuscript chapter");
@@ -339,7 +354,7 @@ function ManuscriptsPane({ book, chapter, activeTab, onChangeTab }) {
             <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
               <select
                 value={selectedEdition || ""}
-                onChange={event => setSelectedEdition(event.target.value)}
+                onChange={event => { setSelectedEdition(event.target.value); kickResync(); }}
               >
                 {available.map(e => (
                   <option key={e.code} value={e.code}>
