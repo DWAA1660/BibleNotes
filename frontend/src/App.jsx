@@ -946,6 +946,7 @@ function App() {
                   onToggleSync={() => setSyncNotes(v => !v)}
                   book={selectedBook}
                   chapter={selectedChapter}
+                  activeTab={rightPaneTab}
                 />
                 <BiblePane
                   chapterData={chapterData}

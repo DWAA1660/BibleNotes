@@ -38,7 +38,8 @@ function NotesPane({
   syncNotes = false,
   onToggleSync = () => {},
   book,
-  chapter
+  chapter,
+  activeTab = "commentaries"
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -239,6 +240,9 @@ function NotesPane({
       if ((d.spacerMode === 'manuscripts') && Number.isFinite(d.spacer)) {
         const s = Math.max(0, Math.round(Number(d.spacer)));
         desired = s;
+      } else if ((d.spacerMode === 'commentaries') && Number.isFinite(d.spacer)) {
+        const s = Math.max(0, Math.round(Number(d.spacer)));
+        desired = s;
       }
       try { console.log('[NotesPane] recv bible-verse-heights', { applied, baseTop, header, target, desired, prevMargin: extraTopMargin, spacer: d.spacer, spacerMode: d.spacerMode }); } catch {}
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
@@ -246,6 +250,21 @@ function NotesPane({
     window.addEventListener('bible-verse-heights', onBibleHeights);
     return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
   }, [syncNotes, extraTopMargin]);
+
+  // On tab switch, reset commentary header spacer when leaving commentaries, and request re-measure
+  useEffect(() => {
+    if (!syncNotes) return;
+    if (activeTab !== 'commentaries') {
+      commHeaderSpacerRef.current = 0;
+    }
+    const kick = () => {
+      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
+      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
+    };
+    const t1 = setTimeout(kick, 0);
+    const t2 = setTimeout(kick, 80);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [activeTab, syncNotes, book, chapter]);
 
   useEffect(() => {
     if (!syncNotes) return;
@@ -257,9 +276,19 @@ function NotesPane({
       commHeaderSpacerRef.current = Math.max(0, Number(d.headerOffset) || 0);
       const rawTop = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
-      const desired = Math.max(0, Math.round((lastBibleTopOffsetRef.current || 0) - baseTop + (commHeaderSpacerRef.current || 0)));
-      try { console.log('[NotesPane] recv commentary-verse-heights(top)', { header: commHeaderSpacerRef.current, baseTop, desired, prevMargin: extraTopMargin }); } catch {}
-      if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
+      // If commentary header exists, adopt it directly so Notes jumps to match Bible instantly
+      if (commHeaderSpacerRef.current > 0) {
+        const desiredHeader = Math.max(0, Math.round(commHeaderSpacerRef.current));
+        try { console.log('[NotesPane] recv commentary-verse-heights(top-header)', { header: desiredHeader, prevMargin: extraTopMargin }); } catch {}
+        if (Math.abs(desiredHeader - (extraTopMargin || 0)) > 1) setExtraTopMargin(desiredHeader);
+      } else {
+        const desired = Math.max(0, Math.round((lastBibleTopOffsetRef.current || 0) - baseTop + (commHeaderSpacerRef.current || 0)));
+        try { console.log('[NotesPane] recv commentary-verse-heights(top)', { header: commHeaderSpacerRef.current, baseTop, desired, prevMargin: extraTopMargin }); } catch {}
+        if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
+      }
+      // After adopting commentary header/top alignment, request re-measure so Bible and Notes settle.
+      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
+      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
     }
     window.addEventListener('commentary-verse-heights', onCommTop);
     return () => window.removeEventListener('commentary-verse-heights', onCommTop);
@@ -639,7 +668,8 @@ NotesPane.propTypes = {
   syncNotes: PropTypes.bool,
   onToggleSync: PropTypes.func,
   book: PropTypes.string,
-  chapter: PropTypes.number
-};
+  chapter: PropTypes.number,
+  activeTab: PropTypes.string
+});
 
 export default NotesPane;

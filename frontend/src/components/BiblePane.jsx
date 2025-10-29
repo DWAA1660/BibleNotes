@@ -80,6 +80,7 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     stabilizingRef.current = true;
     pendingSpacerRef.current = null;
     lastBroadcastRef.current = { top: -1, hash: "" };
+    // Slightly longer to absorb initial measurements from both panes
     const t = setTimeout(() => {
       stabilizingRef.current = false;
       if (pendingSpacerRef.current != null) {
@@ -87,7 +88,9 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
         setTopSpacerHeight(prev => (Math.abs(prev - desired) > 1 ? desired : prev));
       }
       pendingSpacerRef.current = null;
-    }, 250);
+      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
+      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
+    }, 400);
     return () => clearTimeout(t);
   }, [activeTab, chapterData?.book, chapterData?.chapter]);
 
@@ -152,6 +155,11 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
       const last = lastBroadcastRef.current;
       const topChanged = Math.abs((last.top ?? -1) - baseTop) > 1;
       const heightsChanged = heightsKey !== last.hash;
+      // During Manuscripts stabilization, suppress emissions to avoid oscillation while spacer settles
+      if (activeTab === 'manuscripts' && stabilizingRef.current) {
+        try { console.log('[BiblePane] suppress emit (stabilizing manuscripts)', { baseTop, heightsChanged, topChanged }); } catch {}
+        return;
+      }
       if (topChanged || heightsChanged) {
         lastBroadcastRef.current = { top: baseTop, hash: heightsKey };
         try {
