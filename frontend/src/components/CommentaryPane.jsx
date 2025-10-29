@@ -140,7 +140,6 @@ function CommentaryPane({
     if (!syncNotes || activeTab !== 'commentaries') return;
     function onBibleHeights(e) {
       const d = e.detail || {};
-      if (d.book !== book || Number(d.chapter) !== Number(chapter)) return;
       const list = listRef.current; const container = contentRef.current;
       if (!list || !container) return;
       const items = Array.from(list.querySelectorAll('[data-sync-verse]'));
@@ -156,6 +155,25 @@ function CommentaryPane({
       const target = Math.max(0, (Number(d.topOffset) || 0));
       const desired = Math.round(target - baseTop);
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
+      requestAnimationFrame(() => {
+        try {
+          const rows = Array.from(list.querySelectorAll('[data-sync-verse]'));
+          const heights = {};
+          for (const el of rows) {
+            const v = Number(el.getAttribute('data-sync-verse')) || 0;
+            const prevH = el.style.height; const prevMin = el.style.minHeight;
+            if (prevH) el.style.height = ''; if (prevMin) el.style.minHeight = '';
+            const h = el.getBoundingClientRect().height;
+            if (prevH) el.style.height = prevH; if (prevMin) el.style.minHeight = prevMin;
+            if (v) heights[v] = h;
+          }
+          const raw = Math.max(0, list.getBoundingClientRect().top - container.getBoundingClientRect().top);
+          const base = Math.max(0, raw - (extraTopMargin || 0));
+          const headerH = (controlsRef.current && controlsRef.current.offsetHeight) || 0;
+          window.dispatchEvent(new CustomEvent('commentary-verse-heights', { detail: { book, chapter, heights, topOffset: base + (extraTopMargin || 0) + headerH, headerOffset: headerH } }));
+          window.dispatchEvent(new Event('request-bible-verse-heights'));
+        } catch {}
+      });
     }
     window.addEventListener('bible-verse-heights', onBibleHeights);
     return () => window.removeEventListener('bible-verse-heights', onBibleHeights);

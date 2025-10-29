@@ -237,27 +237,7 @@ function NotesPane({
     return () => window.removeEventListener('bible-verse-heights', onBibleHeights);
   }, [syncNotes, extraTopMargin]);
 
-  // Reset heights and spacer on scope changes and request fresh measurements
-  useEffect(() => {
-    if (!syncNotes) return;
-    const list = listRef.current;
-    if (list) {
-      const items = Array.from(list.querySelectorAll('[data-sync-verse]'));
-      for (const el of items) {
-        el.style.minHeight = '';
-        el.style.height = '';
-      }
-    }
-    if (extraTopMargin !== 0) setExtraTopMargin(0);
-    // Kick both panes to re-measure and broadcast
-    const kick = () => {
-      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
-      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
-    };
-    const t1 = setTimeout(kick, 0);
-    const t2 = setTimeout(kick, 60);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [syncNotes, book, chapter, verses?.length]);
+  
 
   useEffect(() => {
     if (!syncNotes) return;
