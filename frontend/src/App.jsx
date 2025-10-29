@@ -935,6 +935,29 @@ function App() {
                       setNoteError(e.message || "Failed to update note");
                     }
                   }}
+                  onDeleteNote={async (noteId) => {
+                    try {
+                      await api.deleteNote(noteId);
+                      if (authToken) {
+                        const my = await api.fetchMyNotes();
+                        const filtered = my.notes.filter(n =>
+                          n.start_book === selectedBook &&
+                          n.start_chapter === selectedChapter
+                        );
+                        const order = new Map(BOOKS.map((b, i) => [b, i]));
+                        filtered.sort((a, b) => {
+                          const ai = order.get(a.start_book) ?? 999;
+                          const bi = order.get(b.start_book) ?? 999;
+                          if (ai !== bi) return ai - bi;
+                          if (a.start_chapter !== b.start_chapter) return a.start_chapter - b.start_chapter;
+                          return a.start_verse - b.start_verse;
+                        });
+                        setNotes(filtered);
+                      }
+                    } catch (e) {
+                      setNoteError(e.message || "Failed to delete note");
+                    }
+                  }}
                   verses={chapterData ? chapterData.verses : []}
                   noteError={noteError}
                   isLoading={isLoadingNotes}
@@ -1052,6 +1075,15 @@ function App() {
                         setProfileData(data);
                       } catch (e) {
                         setProfileError(e.message || "Failed to update note");
+                      }
+                    }}
+                    onDeleteNote={async (noteId) => {
+                      try {
+                        await api.deleteNote(noteId);
+                        const data = await api.fetchMyProfile();
+                        setProfileData(data);
+                      } catch (e) {
+                        setProfileError(e.message || "Failed to delete note");
                       }
                     }}
                   />

@@ -39,7 +39,8 @@ function NotesPane({
   onToggleSync = () => {},
   book,
   chapter,
-  activeTab = "commentaries"
+  activeTab = "commentaries",
+  onDeleteNote
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -511,6 +512,7 @@ function NotesPane({
                           ) : null}
                           <div style={{ marginTop: "0.5rem" }}>
                             <button type="button" onClick={() => beginEdit(note)}>Edit</button>
+                            <button type="button" onClick={() => { if (window.confirm("Delete this note?")) onDeleteNote(note.id); }} style={{ marginLeft: "0.5rem" }}>Delete</button>
                           </div>
                           {idx === 0 ? (
                             <>
@@ -626,6 +628,7 @@ function NotesPane({
                     ) : null}
                     <div style={{ marginTop: "0.5rem" }}>
                       <button type="button" onClick={() => beginEdit(note)}>Edit</button>
+                      <button type="button" onClick={() => { if (window.confirm("Delete this note?")) onDeleteNote(note.id); }} style={{ marginLeft: "0.5rem" }}>Delete</button>
                     </div>
                   </>
                 )}
@@ -665,6 +668,7 @@ NotesPane.propTypes = {
   }),
   onCreateNote: PropTypes.func.isRequired,
   onUpdateNote: PropTypes.func.isRequired,
+  onDeleteNote: PropTypes.func.isRequired,
   verses: PropTypes.array.isRequired,
   noteError: PropTypes.string,
   isLoading: PropTypes.bool,

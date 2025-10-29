@@ -38,7 +38,7 @@ function parseVerseLine(line) {
   return { chapter, verse, text: match[3] || "" };
 }
 
-function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUnsubscribeAuthor }) {
+function ProfilePage({ profile, isOwnProfile, onUpdateNote, onDeleteNote, subscriptions, onUnsubscribeAuthor }) {
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
@@ -337,6 +337,13 @@ function ProfilePage({ profile, isOwnProfile, onUpdateNote, subscriptions, onUns
                   {isOwnProfile ? (
                     <div style={{ marginTop: "0.5rem" }}>
                       <button type="button" onClick={() => beginEdit(note)}>Edit</button>
+                      <button
+                        type="button"
+                        onClick={() => { if (window.confirm("Delete this note?")) onDeleteNote && onDeleteNote(note.id); }}
+                        style={{ marginLeft: "0.5rem" }}
+                      >
+                        Delete
+                      </button>
                     </div>
                   ) : null}
                 </>
@@ -371,6 +378,7 @@ ProfilePage.propTypes = {
   }),
   isOwnProfile: PropTypes.bool,
   onUpdateNote: PropTypes.func,
+  onDeleteNote: PropTypes.func,
   subscriptions: PropTypes.array,
   onUnsubscribeAuthor: PropTypes.func
 };
@@ -379,6 +387,7 @@ ProfilePage.defaultProps = {
   profile: null,
   isOwnProfile: false,
   onUpdateNote: undefined,
+  onDeleteNote: undefined,
   subscriptions: [],
   onUnsubscribeAuthor: undefined
 };
