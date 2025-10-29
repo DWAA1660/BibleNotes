@@ -165,7 +165,14 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
           });
         } catch {}
         try {
-          window.dispatchEvent(new CustomEvent('bible-verse-heights', { detail: { book: chapterData.book, chapter: chapterData.chapter, heights: outHeights, topOffset: baseTop } }));
+          window.dispatchEvent(new CustomEvent('bible-verse-heights', { detail: {
+            book: chapterData.book,
+            chapter: chapterData.chapter,
+            heights: outHeights,
+            topOffset: baseTop,
+            spacer: effectiveSpacer || 0,
+            spacerMode: activeTab || null
+          } }));
         } catch {}
       }
     }

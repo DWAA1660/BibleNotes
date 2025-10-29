@@ -234,8 +234,13 @@ function NotesPane({
       const baseTop = Math.max(0, rawTop - (extraTopMargin || 0));
       const header = commHeaderSpacerRef.current || 0;
       const target = lastBibleTopOffsetRef.current;
-      const desired = Math.max(0, Math.round(target - baseTop + header));
-      try { console.log('[NotesPane] recv bible-verse-heights', { applied, baseTop, header, target, desired, prevMargin: extraTopMargin }); } catch {}
+      // If Bible reports a spacer for Manuscripts, mirror it so Notes visually matches Bible's top offset
+      let desired = Math.max(0, Math.round(target - baseTop + header));
+      if ((d.spacerMode === 'manuscripts') && Number.isFinite(d.spacer)) {
+        const s = Math.max(0, Math.round(Number(d.spacer)));
+        desired = s;
+      }
+      try { console.log('[NotesPane] recv bible-verse-heights', { applied, baseTop, header, target, desired, prevMargin: extraTopMargin, spacer: d.spacer, spacerMode: d.spacerMode }); } catch {}
       if (Math.abs(desired - (extraTopMargin || 0)) > 1) setExtraTopMargin(desired);
     }
     window.addEventListener('bible-verse-heights', onBibleHeights);
