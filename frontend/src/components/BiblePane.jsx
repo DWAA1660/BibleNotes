@@ -187,7 +187,11 @@ function BiblePane({ chapterData, selectedVerseId, onSelectVerse, isLoading, sel
     const rAF = () => requestAnimationFrame(() => { measureAndEmit(); setTimeout(measureAndEmit, 0); });
     rAF();
     window.addEventListener('resize', rAF);
-    const onRequest = () => rAF();
+    const onRequest = () => { 
+      // Force next measurement to emit even if stable, so listeners attaching late still receive data
+      try { lastBroadcastRef.current = { top: -1, hash: "" }; } catch {}
+      rAF(); 
+    };
     window.addEventListener('request-bible-verse-heights', onRequest);
     return () => {
       window.removeEventListener('resize', rAF);
