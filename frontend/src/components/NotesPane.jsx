@@ -240,7 +240,9 @@ function NotesPane({
       let desired = Math.max(0, Math.round(target - baseTop + header));
       if ((d.spacerMode === 'manuscripts') && Number.isFinite(d.spacer)) {
         const s = Math.max(0, Math.round(Number(d.spacer)));
-        desired = s;
+        // During manuscripts stabilization Bible may briefly report 0 spacer.
+        // Only adopt a positive spacer; otherwise keep the computed desired offset.
+        if (s > 0) desired = s;
       } else if ((d.spacerMode === 'commentaries') && Number.isFinite(d.spacer)) {
         const s = Math.max(0, Math.round(Number(d.spacer)));
         desired = s;
