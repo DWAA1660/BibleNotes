@@ -494,25 +494,6 @@ function App() {
     }
   }, [chapterData, selectedVerseId, requestedVerseNumber]);
 
-  // When switching version/book/chapter with Sync Notes on, wait for both
-  // chapter and notes to finish loading, then request a synchronized re-measure
-  // to prevent transient misalignment/bounce without requiring a hard refresh.
-  useEffect(() => {
-    if (!syncNotes) return;
-    if (isLoadingChapter || isLoadingNotes) return;
-    // Only on main reading route
-    if (location.pathname !== "/") return;
-    const kick = () => {
-      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
-      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
-    };
-    // Kick now and again shortly after layout settles
-    const t1 = setTimeout(kick, 0);
-    const t2 = setTimeout(kick, 80);
-    const t3 = setTimeout(kick, 160);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [syncNotes, isLoadingChapter, isLoadingNotes, selectedVersion, selectedBook, selectedChapter, location.pathname]);
-
   useEffect(() => {
     if (!chapterData || requestedVerseNumber == null) {
       return;
