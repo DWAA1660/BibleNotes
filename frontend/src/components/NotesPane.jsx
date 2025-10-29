@@ -670,6 +670,6 @@ NotesPane.propTypes = {
   book: PropTypes.string,
   chapter: PropTypes.number,
   activeTab: PropTypes.string
-});
+};
 
 export default NotesPane;
