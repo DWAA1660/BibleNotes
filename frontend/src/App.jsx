@@ -184,6 +184,18 @@ function App() {
     return found || null;
   }, []);
 
+  // Force all panes to re-measure and broadcast heights
+  const fullResync = useCallback(() => {
+    const kick = () => {
+      try { window.dispatchEvent(new Event('request-bible-verse-heights')); } catch {}
+      try { window.dispatchEvent(new Event('request-notes-verse-heights')); } catch {}
+    };
+    kick();
+    requestAnimationFrame(kick);
+    setTimeout(kick, 60);
+    setTimeout(kick, 140);
+  }, []);
+
   const handleReferenceGo = useCallback((text) => {
     const s = (text || "").trim();
     if (!s) return;
@@ -208,6 +220,8 @@ function App() {
       params.set("verse", String(verse));
       navigate({ pathname: "/", search: `?${params.toString()}` });
     }
+    // Force a full resync so panes equalize as soon as navigation is requested
+    fullResync();
   }, [location.pathname, navigate, resolveBook, selectedVersion]);
 
   useEffect(() => {
@@ -337,6 +351,9 @@ function App() {
       setTimeout(() => {
         try { window.dispatchEvent(new CustomEvent("goto-verse", { detail })); } catch {}
       }, 50);
+      // And trigger a full resync to ensure equalization post-navigation
+      requestAnimationFrame(() => fullResync());
+      setTimeout(() => fullResync(), 80);
     }
     setPendingGoto(null);
   }, [pendingGoto, chapterData]);
@@ -618,6 +635,7 @@ function App() {
     setSelectedVersion(value);
     setSelectedVerseId(null);
     setRequestedVerseNumber(null);
+    fullResync();
   }, [setSelectedVersion, setSelectedVerseId, setRequestedVerseNumber]);
 
   const handleBookChange = useCallback(value => {
@@ -625,12 +643,14 @@ function App() {
     setSelectedChapter(1);
     setSelectedVerseId(null);
     setRequestedVerseNumber(null);
+    fullResync();
   }, [setSelectedBook, setSelectedChapter, setSelectedVerseId, setRequestedVerseNumber]);
 
   const handleChapterChange = useCallback(value => {
     setSelectedChapter(value);
     setSelectedVerseId(null);
     setRequestedVerseNumber(null);
+    fullResync();
   }, [setSelectedChapter, setSelectedVerseId, setRequestedVerseNumber]);
 
   const handleVerseChange = useCallback(value => {
@@ -638,6 +658,7 @@ function App() {
     if (value == null) {
       setSelectedVerseId(null);
     }
+    fullResync();
   }, [setRequestedVerseNumber, setSelectedVerseId]);
 
   const handleSelectAsCommentator = async authorId => {
